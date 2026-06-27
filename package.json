@@ -12,6 +12,8 @@
     "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "setup:supabase": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure-supabase.ps1",
+    "seed:production": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/seed-production.ps1",
     "prisma:seed": "node prisma/seed.cjs",
     "prisma:studio": "prisma studio"
   },
