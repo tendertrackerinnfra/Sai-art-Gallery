@@ -10,6 +10,10 @@ const dateFormatter = new Intl.DateTimeFormat("en-IN", {
   year: "numeric",
 });
 
+const quantityFormatter = new Intl.NumberFormat("en-IN", {
+  maximumFractionDigits: 3,
+});
+
 export function formatCurrency(value: number | string) {
   return currencyFormatter.format(Number(value));
 }
@@ -18,3 +22,6 @@ export function formatDate(value: Date) {
   return dateFormatter.format(value);
 }
 
+export function formatQuantity(value: number | string) {
+  return quantityFormatter.format(Number(value));
+}

@@ -15,7 +15,7 @@ async function getDashboardData() {
   startOfToday.setHours(0, 0, 0, 0);
 
   try {
-    const [sales, openOrders, products, lowStockProducts] = await Promise.all([
+    const [sales, openOrders, products, lowStockItems] = await Promise.all([
       getDb().sale.aggregate({
         where: { saleDate: { gte: startOfToday }, status: "active" },
         _sum: { grandTotal: true },
@@ -25,10 +25,13 @@ async function getDashboardData() {
       }),
       getDb().product.count({ where: { status: "active" } }),
       getDb().$queryRaw<Array<{ count: bigint }>>`
-        SELECT COUNT(*)::bigint AS count
-        FROM products
-        WHERE status = 'active'
-          AND quantity_on_hand <= reorder_level
+        SELECT (
+          (SELECT COUNT(*) FROM products
+            WHERE status = 'active' AND quantity_on_hand <= reorder_level)
+          +
+          (SELECT COUNT(*) FROM raw_materials
+            WHERE status = 'active' AND quantity_on_hand <= reorder_level)
+        )::bigint AS count
       `,
     ]);
 
@@ -38,7 +41,7 @@ async function getDashboardData() {
         { label: "Today sales", value: formatCurrency(sales._sum.grandTotal?.toString() ?? 0), icon: IndianRupee },
         { label: "Open custom orders", value: String(openOrders), icon: ClipboardList },
         { label: "Active products", value: String(products), icon: Boxes },
-        { label: "Low stock items", value: String(lowStockProducts[0]?.count ?? 0), icon: PackagePlus },
+        { label: "Low stock items", value: String(lowStockItems[0]?.count ?? 0), icon: PackagePlus },
       ],
     };
   } catch {
@@ -105,11 +108,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <Card>
         <CardHeader>
           <CardTitle>Local business workspace</CardTitle>
-          <CardDescription>The first complete workflow is ready in Product Inventory.</CardDescription>
+          <CardDescription>Finished products and raw materials are ready for daily stock control.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>Add categories and products, track every stock adjustment, and archive records without deleting history.</span>
-          <Link href="/products" className="font-medium text-primary hover:underline">Manage products</Link>
+          <span>Add stock, record every adjustment, and archive records without deleting history.</span>
+          <div className="flex flex-wrap gap-4">
+            <Link href="/products" className="font-medium text-primary hover:underline">Products</Link>
+            <Link href="/raw-materials" className="font-medium text-primary hover:underline">Raw materials</Link>
+          </div>
         </CardContent>
       </Card>
     </section>
