@@ -1,4 +1,5 @@
 import {
+  Gauge,
   IndianRupee,
   Landmark,
   ShoppingBag,
@@ -8,6 +9,7 @@ import {
 } from "lucide-react";
 
 export const navigationItems = [
+  { title: "Dashboard", href: "/dashboard", icon: Gauge },
   { title: "Inventory", href: "/products", icon: ShoppingBag },
   { title: "Sales", href: "/sales", icon: IndianRupee },
   { title: "Customers", href: "/customers", icon: Users },
