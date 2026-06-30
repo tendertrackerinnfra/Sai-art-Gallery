@@ -1,12 +1,15 @@
-import { AlertCircle, Ban, CircleDollarSign, PackageCheck, Receipt, Wallet } from "lucide-react";
+import { AlertCircle, Ban, CircleDollarSign, Download, PackageCheck, Receipt, Wallet } from "lucide-react";
 
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireCapability } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -77,18 +80,6 @@ async function loadSalesData() {
   }
 }
 
-function getPaymentBadgeClass(status: string) {
-  if (status === "paid") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (status === "partial") return "border-amber-200 bg-amber-50 text-amber-800";
-  if (status === "cancelled") return "border-red-200 bg-red-50 text-red-700";
-  return "border-slate-200 bg-slate-50 text-slate-700";
-}
-
-function getRecordBadgeClass(status: string) {
-  if (status === "active") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  return "border-red-200 bg-red-50 text-red-700";
-}
-
 export default async function SalesPage({ searchParams }: SalesPageProps) {
   await requireCapability("sales");
   const [{ success, error }, data] = await Promise.all([searchParams, loadSalesData()]);
@@ -111,15 +102,11 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Sales</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Record jewellery sales, deduct finished stock, capture payments, and preserve the audit trail.
-          </p>
-        </div>
-        <Badge className="bg-emerald-50 text-emerald-700">Transactional stock control</Badge>
-      </div>
+      <PageHeader
+        title="Sales"
+        description="Record jewellery sales, capture payment status, preserve stock deductions, and keep invoice-ready history."
+        badge={<StatusBadge tone="active" label="Transactional stock control" />}
+      />
 
       {data.databaseError && (
         <Alert variant="destructive">
@@ -129,44 +116,15 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
       )}
       {success && <Alert variant="success">{success}</Alert>}
       {error && <Alert variant="destructive">{error}</Alert>}
+      <Alert>
+        Validation runs before saving. Product stock, duplicate items, discounts, and payment limits are checked on the server before the sale is committed.
+      </Alert>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardDescription>Today&apos;s sales</CardDescription>
-              <CardTitle className="text-2xl">{formatCurrency(todayValue)}</CardTitle>
-            </div>
-            <CircleDollarSign className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardDescription>Collected payments</CardDescription>
-              <CardTitle className="text-2xl">{formatCurrency(amountCollected)}</CardTitle>
-            </div>
-            <Wallet className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardDescription>Outstanding balance</CardDescription>
-              <CardTitle className="text-2xl">{formatCurrency(outstandingBalance)}</CardTitle>
-            </div>
-            <Receipt className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardDescription>Units sold</CardDescription>
-              <CardTitle className="text-2xl">{unitsSold}</CardTitle>
-            </div>
-            <PackageCheck className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </CardHeader>
-        </Card>
+        <StatCard icon={CircleDollarSign} label="Today&apos;s sales" value={formatCurrency(todayValue)} helper="Active sales dated today" />
+        <StatCard icon={Wallet} label="Collected payments" value={formatCurrency(amountCollected)} helper="Paid amounts only" />
+        <StatCard icon={Receipt} label="Outstanding balance" value={formatCurrency(outstandingBalance)} helper="Uncollected from active sales" />
+        <StatCard icon={PackageCheck} label="Units sold" value={unitsSold} helper="Across visible active sales" />
       </div>
 
       <Card>
@@ -284,6 +242,26 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               </div>
             </div>
 
+            <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-2xl border border-border/70 bg-muted/35 p-4 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">Invoice preview</p>
+                <p className="mt-2">A sale number and invoice-ready history are generated automatically after the sale is saved. This section is reserved for formatted invoice preview and print layout.</p>
+              </div>
+              <div className="rounded-2xl border border-dashed border-border p-4">
+                <p className="text-sm font-medium">Invoice actions</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" disabled aria-disabled="true">
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Print invoice
+                  </Button>
+                  <Button type="button" variant="outline" disabled aria-disabled="true">
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Download PDF
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             <Button type="submit" disabled={data.databaseError || data.products.length === 0}>
               Save sale
             </Button>
@@ -298,9 +276,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           {data.sales.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
-              No sales recorded yet. Use the form above to create the first sale.
-            </div>
+            <EmptyState icon={Receipt} title="No sales recorded yet" description="Use the form above to create the first sale, deduct stock, and start the invoice-ready history." />
           ) : (
             data.sales.map((sale) => {
               const paidAmount = sale.payments.reduce((total, payment) => total + Number(payment.amount), 0);
@@ -317,8 +293,8 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                         </CardDescription>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Badge className={getRecordBadgeClass(sale.status)}>{sale.status}</Badge>
-                        <Badge className={getPaymentBadgeClass(sale.paymentStatus)}>{sale.paymentStatus}</Badge>
+                        <StatusBadge tone={sale.status === "active" ? "active" : "cancelled"} />
+                        <StatusBadge tone={sale.paymentStatus === "paid" ? "paid" : sale.paymentStatus === "partial" ? "partial" : sale.paymentStatus === "cancelled" ? "cancelled" : "pending"} label={sale.paymentStatus} />
                       </div>
                     </div>
                   </CardHeader>
@@ -376,6 +352,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                           <Wallet className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                           <h3 className="text-sm font-medium">Payments</h3>
                         </div>
+                        <p className="mb-3 text-xs text-muted-foreground">Invoice number: {sale.saleNumber}</p>
                         {sale.payments.length === 0 ? (
                           <p className="text-sm text-muted-foreground">No payments recorded yet.</p>
                         ) : (
@@ -396,6 +373,19 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                       </div>
 
                       <div className="space-y-4">
+                        <div className="rounded-2xl border border-dashed border-border p-4">
+                          <p className="text-sm font-medium">Invoice actions</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button type="button" size="sm" variant="outline" disabled aria-disabled="true">
+                              <Download className="h-4 w-4" aria-hidden="true" />
+                              Print
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" disabled aria-disabled="true">
+                              <Download className="h-4 w-4" aria-hidden="true" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
                         {sale.status === "active" && balance > 0 ? (
                           <Card className="shadow-none">
                             <CardHeader>

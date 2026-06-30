@@ -3,27 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 98%;
-  --foreground: 240 10% 3.9%;
+  --background: 24 100% 99%;
+  --foreground: 342 28% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
-  --primary: 346 77% 43%;
+  --card-foreground: 342 28% 12%;
+  --primary: 343 74% 39%;
   --primary-foreground: 0 0% 98%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --border: 240 5.9% 90%;
-  --ring: 346 77% 43%;
-  --radius: 0.5rem;
+  --muted: 20 33% 97%;
+  --muted-foreground: 340 12% 42%;
+  --border: 20 20% 90%;
+  --ring: 343 74% 39%;
+  --radius: 0.9rem;
 }
 
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: Arial, Helvetica, sans-serif;
+  background-image:
+    radial-gradient(circle at top left, rgba(190, 24, 93, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(180, 83, 9, 0.06), transparent 18%);
+  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  min-height: 100vh;
 }
 
 * {
   border-color: hsl(var(--border));
+}
+
+::selection {
+  background: rgba(190, 24, 93, 0.16);
+}
+
+main {
+  min-width: 0;
 }
 
 button,

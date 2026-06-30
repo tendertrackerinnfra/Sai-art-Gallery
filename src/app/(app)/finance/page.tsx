@@ -1,12 +1,15 @@
-import { Building2, CircleDollarSign, Landmark, PiggyBank, ReceiptText, Wallet } from "lucide-react";
+import { Building2, CircleDollarSign, Download, Landmark, PiggyBank, ReceiptText, Wallet } from "lucide-react";
 
+import { DataTable } from "@/components/shared/data-table";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { requireCapability } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -135,9 +138,10 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
   const cashInHand = openingCashInHand + cashIncome - cashExpenses;
   const bankBalance = openingBankBalance + bankIncome - bankExpenses;
   const totalReceivable = data.sales.reduce((total, sale) => {
-      const paid = sale.payments.reduce((saleTotal, payment) => saleTotal + Number(payment.amount), 0);
-      return total + Math.max(0, Number(sale.grandTotal) - paid);
-    }, 0);
+    const paid = sale.payments.reduce((saleTotal, payment) => saleTotal + Number(payment.amount), 0);
+    return total + Math.max(0, Number(sale.grandTotal) - paid);
+  }, 0);
+  const netPosition = totalSalesValue - totalExpenses;
 
   const ledger: LedgerEntry[] = [
     ...data.salePayments.map((payment) => ({
@@ -164,15 +168,23 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Finance</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Bank details, opening balances, income from sales, expense deductions, and live cash and bank positions.
-          </p>
-        </div>
-        <Badge className="bg-emerald-50 text-emerald-700">Auto-calculated from sales and expenses</Badge>
-      </div>
+      <PageHeader
+        title="Finance"
+        description="Live cash, bank, receivables, and expense intelligence derived automatically from saved business transactions."
+        badge={<StatusBadge tone="active" label="Auto-calculated from sales and expenses" />}
+        actions={
+          <>
+            <Button variant="outline" disabled aria-disabled="true">
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Export P&L
+            </Button>
+            <Button variant="outline" disabled aria-disabled="true">
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Export ledger
+            </Button>
+          </>
+        }
+      />
 
       {data.databaseError && (
         <Alert variant="destructive">
@@ -183,54 +195,14 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
       {error && <Alert variant="destructive">{error}</Alert>}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardDescription>Total income</CardDescription>
-              <CardTitle className="text-2xl">{formatCurrency(totalSalesValue)}</CardTitle>
-            </div>
-            <CircleDollarSign className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardDescription>Total expenses</CardDescription>
-              <CardTitle className="text-2xl">{formatCurrency(totalExpenses)}</CardTitle>
-            </div>
-            <ReceiptText className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardDescription>Cash in hand</CardDescription>
-              <CardTitle className="text-2xl">{formatCurrency(cashInHand)}</CardTitle>
-            </div>
-            <Wallet className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardDescription>Bank balance</CardDescription>
-              <CardTitle className="text-2xl">{formatCurrency(bankBalance)}</CardTitle>
-            </div>
-            <Landmark className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardDescription>Outstanding receivable</CardDescription>
-              <CardTitle className="text-2xl">{formatCurrency(totalReceivable)}</CardTitle>
-            </div>
-            <PiggyBank className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </CardHeader>
-        </Card>
+        <StatCard icon={CircleDollarSign} label="Total income" value={formatCurrency(totalSalesValue)} helper="Recorded sale payments" />
+        <StatCard icon={ReceiptText} label="Total expenses" value={formatCurrency(totalExpenses)} helper="Active expense records" />
+        <StatCard icon={Wallet} label="Cash in hand" value={formatCurrency(cashInHand)} helper="Cash sales minus cash expenses" />
+        <StatCard icon={Landmark} label="Bank balance" value={formatCurrency(bankBalance)} helper="Bank-channel movements only" />
+        <StatCard icon={PiggyBank} label="Receivables" value={formatCurrency(totalReceivable)} helper="Outstanding active sale balance" />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
         <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -295,81 +267,102 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Automatic balances</CardTitle>
-            <CardDescription>Income is based on recorded sale payments. Expenses are based on active expense entries.</CardDescription>
+            <CardTitle>P&L summary</CardTitle>
+            <CardDescription>Automatic channel split and current net position.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-md border border-border p-4">
-              <p className="text-xs text-muted-foreground">Cash income</p>
-              <p className="mt-1 font-medium">{formatCurrency(cashIncome)}</p>
-              <p className="mt-3 text-xs text-muted-foreground">Cash expenses</p>
-              <p className="mt-1 font-medium">{formatCurrency(cashExpenses)}</p>
+            <div className="rounded-2xl border border-border/70 bg-muted/35 p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Net position</span>
+                <span className={`text-lg font-semibold ${netPosition >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{formatCurrency(netPosition)}</span>
+              </div>
             </div>
-            <div className="rounded-md border border-border p-4">
-              <p className="text-xs text-muted-foreground">Bank income</p>
-              <p className="mt-1 font-medium">{formatCurrency(bankIncome)}</p>
-              <p className="mt-3 text-xs text-muted-foreground">Bank expenses</p>
-              <p className="mt-1 font-medium">{formatCurrency(bankExpenses)}</p>
+            <div className="rounded-2xl border border-border/70 bg-muted/35 p-4">
+              <p className="text-xs text-muted-foreground">Cash split</p>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span>Income</span>
+                <span className="font-medium">{formatCurrency(cashIncome)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span>Expenses</span>
+                <span className="font-medium">{formatCurrency(cashExpenses)}</span>
+              </div>
             </div>
-            <div className="rounded-md border border-border p-4">
-              <p className="text-xs text-muted-foreground">Unassigned income</p>
-              <p className="mt-1 font-medium">{formatCurrency(otherIncome)}</p>
-              <p className="mt-3 text-xs text-muted-foreground">Unassigned expenses</p>
-              <p className="mt-1 font-medium">{formatCurrency(otherExpenses)}</p>
+            <div className="rounded-2xl border border-border/70 bg-muted/35 p-4">
+              <p className="text-xs text-muted-foreground">Bank split</p>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span>Income</span>
+                <span className="font-medium">{formatCurrency(bankIncome)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span>Expenses</span>
+                <span className="font-medium">{formatCurrency(bankExpenses)}</span>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-muted/35 p-4">
+              <p className="text-xs text-muted-foreground">Unassigned channels</p>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span>Income</span>
+                <span className="font-medium">{formatCurrency(otherIncome)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span>Expenses</span>
+                <span className="font-medium">{formatCurrency(otherExpenses)}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent finance ledger</CardTitle>
-          <CardDescription>Combined view of sale payments and active expenses, newest first.</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {ledger.length === 0 ? (
-            <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-              No finance transactions yet. Record a sale payment or an expense to start the ledger.
+      <DataTable
+        title="Recent finance ledger"
+        description="Combined view of sale payments and active expenses, newest first."
+        columns={[
+          { header: "Date", render: (entry) => formatDate(entry.date) },
+          { header: "Type", render: (entry) => <StatusBadge tone={entry.type === "income" ? "paid" : "voided"} label={entry.type} /> },
+          { header: "Channel", render: (entry) => <span className="capitalize">{entry.channel}</span> },
+          { header: "Reference", render: (entry) => entry.reference },
+          { header: "Party / Title", render: (entry) => entry.counterparty },
+          { header: "Description", render: (entry) => entry.description },
+          {
+            header: "Amount",
+            className: "text-right",
+            render: (entry) => (
+              <span className={`font-medium ${entry.type === "income" ? "text-emerald-700" : "text-rose-700"}`}>
+                {entry.type === "income" ? "+" : "-"}{formatCurrency(entry.amount)}
+              </span>
+            ),
+          },
+        ]}
+        rows={ledger}
+        getRowKey={(entry) => `${entry.type}-${entry.id}`}
+        renderMobileCard={(entry) => (
+          <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium">{entry.counterparty}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{entry.reference} · {formatDate(entry.date)}</p>
+              </div>
+              <StatusBadge tone={entry.type === "income" ? "paid" : "voided"} label={entry.type} />
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Channel</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Party / Title</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ledger.map((entry) => (
-                  <TableRow key={`${entry.type}-${entry.id}`}>
-                    <TableCell>{formatDate(entry.date)}</TableCell>
-                    <TableCell>
-                      <Badge className={entry.type === "income" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}>
-                        {entry.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="capitalize">{entry.channel}</TableCell>
-                    <TableCell>{entry.reference}</TableCell>
-                    <TableCell>{entry.counterparty}</TableCell>
-                    <TableCell>{entry.description}</TableCell>
-                    <TableCell className={`text-right font-medium ${entry.type === "income" ? "text-emerald-700" : "text-red-700"}`}>
-                      {entry.type === "income" ? "+" : "-"}{formatCurrency(entry.amount)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+            <p className="mt-3 text-sm text-muted-foreground">{entry.description}</p>
+            <div className="mt-3 flex items-center justify-between">
+              <span className="capitalize text-sm text-muted-foreground">{entry.channel}</span>
+              <span className={`font-medium ${entry.type === "income" ? "text-emerald-700" : "text-rose-700"}`}>
+                {entry.type === "income" ? "+" : "-"}{formatCurrency(entry.amount)}
+              </span>
+            </div>
+          </div>
+        )}
+        empty={{
+          icon: Wallet,
+          title: "No finance transactions yet",
+          description: "Record a sale payment or an expense to start the finance ledger.",
+        }}
+      />
 
       <Alert>
-        `Cash` changes cash in hand. `UPI`, `bank transfer`, and `card` change bank balance. `Other` stays visible in finance totals but is not added into cash or bank balance automatically.
+        `Cash` changes cash in hand. `UPI`, `bank transfer`, and `card` change bank balance. `Other` stays visible in totals but is not automatically assigned to cash or bank.
       </Alert>
     </section>
   );
