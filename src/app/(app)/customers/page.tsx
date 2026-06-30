@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { requireCapability } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { isMobileRequest } from "@/lib/request-device";
 
 import { archiveCustomer, createCustomer, updateCustomer } from "./actions";
 
@@ -52,23 +53,37 @@ async function loadCustomers(query: string, filter: string) {
     });
 
     const customerIds = customers.map((customer) => customer.id);
-    const sales = customerIds.length
-      ? await getDb().sale.findMany({
-          where: {
-            status: "active",
-            customerId: { in: customerIds },
-          },
-          select: {
-            customerId: true,
-            grandTotal: true,
-            saleDate: true,
-            payments: {
-              where: { status: "paid" },
-              select: { amount: true },
+    const [sales, payments] = customerIds.length
+      ? await Promise.all([
+          getDb().sale.findMany({
+            where: {
+              status: "active",
+              customerId: { in: customerIds },
             },
-          },
-        })
-      : [];
+            select: {
+              id: true,
+              customerId: true,
+              grandTotal: true,
+              saleDate: true,
+            },
+          }),
+          getDb().salePayment.groupBy({
+            by: ["saleId"],
+            where: {
+              status: "paid",
+              sale: {
+                status: "active",
+                customerId: { in: customerIds },
+              },
+            },
+            _sum: { amount: true },
+          }),
+        ])
+      : [[], []];
+
+    const paymentBySaleId = new Map(
+      payments.map((payment) => [payment.saleId, Number(payment._sum.amount ?? 0)]),
+    );
 
     const salesByCustomer = new Map<
       string,
@@ -83,7 +98,7 @@ async function loadCustomers(query: string, filter: string) {
         lastSaleDate: null,
       };
       existing.salesValue += Number(sale.grandTotal);
-      existing.paidValue += sale.payments.reduce((total, payment) => total + Number(payment.amount), 0);
+      existing.paidValue += paymentBySaleId.get(sale.id) ?? 0;
       if (!existing.lastSaleDate || sale.saleDate > existing.lastSaleDate) {
         existing.lastSaleDate = sale.saleDate;
       }
@@ -117,7 +132,7 @@ async function loadCustomers(query: string, filter: string) {
 
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
   await requireCapability("customers");
-  const params = await searchParams;
+  const [params, preferMobileCards] = await Promise.all([searchParams, isMobileRequest()]);
   const query = params.q?.trim() ?? "";
   const selectedFilter = params.filter?.trim() ?? "all";
   const { customers, databaseError } = await loadCustomers(query, selectedFilter);
@@ -327,6 +342,8 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
           ]}
           rows={customers}
           getRowKey={(customer) => customer.id}
+          preferMobileCards={preferMobileCards}
+          pageSize={12}
           renderMobileCard={(customer) => (
             <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">

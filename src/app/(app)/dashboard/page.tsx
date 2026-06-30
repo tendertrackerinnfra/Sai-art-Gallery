@@ -36,7 +36,7 @@ async function getDashboardData(rangeKey: string) {
   const { start, end } = getRange(rangeKey);
 
   try {
-    const [sales, salePayments, openOrders, activeSales, inventoryProducts, recentMovements, recentExpenses] = await Promise.all([
+    const [sales, salePayments, openOrders, activeSales, paidSaleTotals, inventoryProducts, recentMovements, recentExpenses] = await Promise.all([
       getDb().sale.aggregate({
         where: { saleDate: { gte: start, lte: end }, status: "active" },
         _sum: { grandTotal: true },
@@ -55,12 +55,17 @@ async function getDashboardData(rangeKey: string) {
       getDb().sale.findMany({
         where: { status: "active" },
         select: {
+          id: true,
           grandTotal: true,
-          payments: {
-            where: { status: "paid" },
-            select: { amount: true },
-          },
         },
+      }),
+      getDb().salePayment.groupBy({
+        by: ["saleId"],
+        where: {
+          status: "paid",
+          sale: { status: "active" },
+        },
+        _sum: { amount: true },
       }),
       getDb().product.findMany({
         where: { status: "active" },
@@ -88,10 +93,13 @@ async function getDashboardData(rangeKey: string) {
       }),
     ]);
 
-    const receivables = activeSales.reduce((total, sale) => {
-      const paid = sale.payments.reduce((saleTotal, payment) => saleTotal + Number(payment.amount), 0);
-      return total + Math.max(0, Number(sale.grandTotal) - paid);
-    }, 0);
+    const paidBySaleId = new Map(
+      paidSaleTotals.map((payment) => [payment.saleId, Number(payment._sum.amount ?? 0)]),
+    );
+    const receivables = activeSales.reduce(
+      (total, sale) => total + Math.max(0, Number(sale.grandTotal) - (paidBySaleId.get(sale.id) ?? 0)),
+      0,
+    );
 
     const inventoryValue = inventoryProducts.reduce(
       (total, product) => total + Number(product.sellingPrice) * product.quantityOnHand,

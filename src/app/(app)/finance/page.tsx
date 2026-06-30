@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { requireCapability } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { isMobileRequest } from "@/lib/request-device";
 
 import { updateFinanceSettings } from "./actions";
 
@@ -50,7 +51,7 @@ function financeChannel(method: string | null | undefined): "cash" | "bank" | "o
 
 async function loadFinanceData() {
   try {
-    const [settings, incomeByMethod, expenseByMethod, receivableSales, saleLedger, expenseLedger] = await Promise.all([
+    const [settings, incomeByMethod, expenseByMethod, activeSales, paidSaleTotals, saleLedger, expenseLedger] = await Promise.all([
       getDb().setting.findMany({
         where: {
           key: {
@@ -84,12 +85,17 @@ async function loadFinanceData() {
       getDb().sale.findMany({
         where: { status: "active" },
         select: {
+          id: true,
           grandTotal: true,
-          payments: {
-            where: { status: "paid" },
-            select: { amount: true },
-          },
         },
+      }),
+      getDb().salePayment.groupBy({
+        by: ["saleId"],
+        where: {
+          status: "paid",
+          sale: { status: "active" },
+        },
+        _sum: { amount: true },
       }),
       getDb().salePayment.findMany({
         where: {
@@ -115,13 +121,14 @@ async function loadFinanceData() {
       }),
     ]);
 
-    return { settings, incomeByMethod, expenseByMethod, receivableSales, saleLedger, expenseLedger, databaseError: false };
+    return { settings, incomeByMethod, expenseByMethod, activeSales, paidSaleTotals, saleLedger, expenseLedger, databaseError: false };
   } catch {
     return {
       settings: [],
       incomeByMethod: [],
       expenseByMethod: [],
-      receivableSales: [],
+      activeSales: [],
+      paidSaleTotals: [],
       saleLedger: [],
       expenseLedger: [],
       databaseError: true,
@@ -131,7 +138,7 @@ async function loadFinanceData() {
 
 export default async function FinancePage({ searchParams }: FinancePageProps) {
   await requireCapability("finance");
-  const [{ success, error }, data] = await Promise.all([searchParams, loadFinanceData()]);
+  const [{ success, error }, data, preferMobileCards] = await Promise.all([searchParams, loadFinanceData(), isMobileRequest()]);
 
   const openingBankBalance = amountFromSetting(data.settings, "finance_opening_bank_balance");
   const openingCashInHand = amountFromSetting(data.settings, "finance_opening_cash_in_hand");
@@ -158,10 +165,13 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
 
   const cashInHand = openingCashInHand + cashIncome - cashExpenses;
   const bankBalance = openingBankBalance + bankIncome - bankExpenses;
-  const totalReceivable = data.receivableSales.reduce((total, sale) => {
-    const paid = sale.payments.reduce((saleTotal, payment) => saleTotal + Number(payment.amount), 0);
-    return total + Math.max(0, Number(sale.grandTotal) - paid);
-  }, 0);
+  const paidBySaleId = new Map(
+    data.paidSaleTotals.map((payment) => [payment.saleId, Number(payment._sum.amount ?? 0)]),
+  );
+  const totalReceivable = data.activeSales.reduce(
+    (total, sale) => total + Math.max(0, Number(sale.grandTotal) - (paidBySaleId.get(sale.id) ?? 0)),
+    0,
+  );
   const netPosition = totalSalesValue - totalExpenses;
 
   const ledger: LedgerEntry[] = [
@@ -357,6 +367,8 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
         ]}
         rows={ledger}
         getRowKey={(entry) => `${entry.type}-${entry.id}`}
+        preferMobileCards={preferMobileCards}
+        pageSize={12}
         renderMobileCard={(entry) => (
           <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">

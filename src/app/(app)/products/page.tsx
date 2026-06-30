@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { requireCapability } from "@/lib/auth";
+import { isMobileRequest } from "@/lib/request-device";
 
 import { adjustStock, archiveProduct, createCategory, createProduct } from "./actions";
 
@@ -61,7 +62,7 @@ async function loadInventory(query: string, categoryId: string, includeArchived:
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   await requireCapability("products");
-  const params = await searchParams;
+  const [params, preferMobileCards] = await Promise.all([searchParams, isMobileRequest()]);
   const query = params.q?.trim() ?? "";
   const selectedCategory = params.category?.trim() ?? "";
   const includeArchived = params.archived === "1";
@@ -293,6 +294,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         ]}
         rows={inventory.products}
         getRowKey={(product) => product.id}
+        preferMobileCards={preferMobileCards}
+        pageSize={12}
         renderMobileCard={(product) => (
           <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { roleAccess, type Role } from "@/config/roles";
 import { getDb } from "@/lib/db";
@@ -22,7 +23,7 @@ export function canAccess(role: Role, capability: string) {
   return allowed.includes("*") || allowed.includes(capability);
 }
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const cookieStore = await cookies();
   const payload = verifySessionToken(cookieStore.get(SESSION_COOKIE_NAME)?.value);
   if (!payload) return null;
@@ -43,7 +44,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   } catch {
     return null;
   }
-}
+});
 
 export async function requireUser() {
   const user = await getCurrentUser();
@@ -84,4 +85,3 @@ export async function clearSession() {
     maxAge: 0,
   });
 }
-

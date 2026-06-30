@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { requireCapability } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { isMobileRequest } from "@/lib/request-device";
 
 import { archiveExpenseCategory, createExpense, createExpenseCategory, voidExpense } from "./actions";
 
@@ -97,7 +98,7 @@ async function loadExpenses(month: string, categoryId: string) {
 
 export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
   await requireCapability("expenses");
-  const params = await searchParams;
+  const [params, preferMobileCards] = await Promise.all([searchParams, isMobileRequest()]);
   const selectedMonth = monthRange(params.month ?? "") ? (params.month as string) : currentMonth();
   const selectedCategory = params.category?.trim() ?? "";
   const { categories, expenses, databaseError } = await loadExpenses(selectedMonth, selectedCategory);
@@ -349,6 +350,8 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         ]}
         rows={expenses}
         getRowKey={(expense) => expense.id}
+        preferMobileCards={preferMobileCards}
+        pageSize={12}
         renderMobileCard={(expense) => (
           <div className={`rounded-2xl border border-border/70 bg-card p-4 shadow-sm ${expense.status === "void" ? "opacity-70" : ""}`}>
             <div className="flex items-start justify-between gap-3">

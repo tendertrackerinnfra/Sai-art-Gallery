@@ -21,6 +21,7 @@ export function DataTable<T>({
   empty,
   desktopMinWidthClassName = "min-w-[760px]",
   pageSize = 20,
+  preferMobileCards = false,
 }: {
   title: string;
   description?: string;
@@ -37,6 +38,7 @@ export function DataTable<T>({
   };
   desktopMinWidthClassName?: string;
   pageSize?: number;
+  preferMobileCards?: boolean;
 }) {
   const visibleRows = rows.slice(0, pageSize);
   const hasMore = rows.length > pageSize;
@@ -57,12 +59,13 @@ export function DataTable<T>({
           </div>
         ) : (
           <>
-            <div className="space-y-3 p-4 md:hidden">
+            <div className={preferMobileCards ? "space-y-3 p-4" : "space-y-3 p-4 md:hidden"}>
               {visibleRows.map((row) => (
                 <div key={getRowKey(row)}>{renderMobileCard(row)}</div>
               ))}
             </div>
-            <div className="hidden md:block">
+            {preferMobileCards ? null : (
+              <div className="hidden md:block">
               <Table className={desktopMinWidthClassName}>
                 <TableHeader>
                   <TableRow>
@@ -85,7 +88,8 @@ export function DataTable<T>({
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              </div>
+            )}
             {hasMore ? (
               <div className="border-t border-border/70 px-4 py-3 text-sm text-muted-foreground">
                 Showing first {pageSize} of {rows.length} rows in this view.
