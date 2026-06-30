@@ -19,8 +19,10 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
+  if (request.headers.get("RSC")) return;
 
   const url = new URL(request.url);
+  if (url.searchParams.has("_rsc")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(
@@ -32,7 +34,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.origin === self.location.origin && (url.pathname.startsWith("/_next/") || url.pathname === "/icon" || url.pathname === "/apple-icon" || url.pathname === "/manifest.webmanifest")) {
+  if (
+    url.origin === self.location.origin &&
+    (
+      (url.pathname.startsWith("/_next/static/") && !url.pathname.includes("/server/")) ||
+      url.pathname === "/icon" ||
+      url.pathname === "/apple-icon" ||
+      url.pathname === "/manifest.webmanifest"
+    )
+  ) {
     event.respondWith(
       caches.match(request).then((cached) => {
         const networkFetch = fetch(request)

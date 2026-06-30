@@ -36,7 +36,7 @@ async function getDashboardData(rangeKey: string) {
   const { start, end } = getRange(rangeKey);
 
   try {
-    const [sales, salePayments, openOrders, products, lowStockProducts, recentMovements, recentExpenses] = await Promise.all([
+    const [sales, salePayments, openOrders, activeSales, inventoryProducts, recentMovements, recentExpenses] = await Promise.all([
       getDb().sale.aggregate({
         where: { saleDate: { gte: start, lte: end }, status: "active" },
         _sum: { grandTotal: true },
@@ -52,66 +52,56 @@ async function getDashboardData(rangeKey: string) {
       getDb().customOrder.count({
         where: { status: { in: ["enquiry", "confirmed", "in_progress", "ready"] } },
       }),
+      getDb().sale.findMany({
+        where: { status: "active" },
+        select: {
+          grandTotal: true,
+          payments: {
+            where: { status: "paid" },
+            select: { amount: true },
+          },
+        },
+      }),
       getDb().product.findMany({
         where: { status: "active" },
         select: {
           id: true,
           name: true,
           sku: true,
-          sellingPrice: true,
           quantityOnHand: true,
           reorderLevel: true,
+          sellingPrice: true,
           category: { select: { name: true } },
         },
         orderBy: { name: "asc" },
       }),
-      getDb().product.findMany({
-        where: { status: "active" },
-        select: {
-          id: true,
-          name: true,
-          sku: true,
-          quantityOnHand: true,
-          reorderLevel: true,
-          category: { select: { name: true } },
-        },
-        orderBy: [{ quantityOnHand: "asc" }, { name: "asc" }],
-      }),
       getDb().productStockMovement.findMany({
         include: { product: { select: { name: true, sku: true } } },
         orderBy: { createdAt: "desc" },
-        take: 5,
+        take: 10,
       }),
       getDb().expense.findMany({
         where: { status: "active" },
         include: { category: true },
         orderBy: { createdAt: "desc" },
-        take: 5,
+        take: 10,
       }),
     ]);
-
-    const activeSales = await getDb().sale.findMany({
-      where: { status: "active" },
-      select: {
-        grandTotal: true,
-        payments: {
-          where: { status: "paid" },
-          select: { amount: true },
-        },
-      },
-    });
 
     const receivables = activeSales.reduce((total, sale) => {
       const paid = sale.payments.reduce((saleTotal, payment) => saleTotal + Number(payment.amount), 0);
       return total + Math.max(0, Number(sale.grandTotal) - paid);
     }, 0);
 
-    const inventoryValue = products.reduce(
+    const inventoryValue = inventoryProducts.reduce(
       (total, product) => total + Number(product.sellingPrice) * product.quantityOnHand,
       0,
     );
 
-    const lowStock = lowStockProducts.filter((item) => item.quantityOnHand <= item.reorderLevel);
+    const lowStock = inventoryProducts
+      .filter((item) => item.quantityOnHand <= item.reorderLevel)
+      .sort((a, b) => a.quantityOnHand - b.quantityOnHand || a.reorderLevel - b.reorderLevel)
+      .slice(0, 10);
 
     const recentActivity = [
       ...recentMovements.map((movement) => ({
@@ -141,7 +131,7 @@ async function getDashboardData(rangeKey: string) {
       openOrders,
       inventoryValue,
       receivables,
-      productsCount: products.length,
+      productsCount: inventoryProducts.length,
       lowStock,
       recentActivity,
     };

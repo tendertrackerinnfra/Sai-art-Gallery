@@ -50,7 +50,7 @@ function financeChannel(method: string | null | undefined): "cash" | "bank" | "o
 
 async function loadFinanceData() {
   try {
-    const [settings, salePayments, expenses, sales] = await Promise.all([
+    const [settings, incomeByMethod, expenseByMethod, receivableSales, saleLedger, expenseLedger] = await Promise.all([
       getDb().setting.findMany({
         where: {
           key: {
@@ -66,26 +66,20 @@ async function loadFinanceData() {
           },
         },
       }),
-      getDb().salePayment.findMany({
+      getDb().salePayment.groupBy({
+        by: ["method"],
         where: {
           status: "paid",
           sale: {
             status: "active",
           },
         },
-        include: {
-          sale: {
-            include: {
-              customer: true,
-            },
-          },
-        },
-        orderBy: { paymentDate: "desc" },
+        _sum: { amount: true },
       }),
-      getDb().expense.findMany({
+      getDb().expense.groupBy({
+        by: ["method"],
         where: { status: "active" },
-        include: { category: true },
-        orderBy: { expenseDate: "desc" },
+        _sum: { amount: true },
       }),
       getDb().sale.findMany({
         where: { status: "active" },
@@ -97,11 +91,41 @@ async function loadFinanceData() {
           },
         },
       }),
+      getDb().salePayment.findMany({
+        where: {
+          status: "paid",
+          sale: { status: "active" },
+        },
+        include: {
+          sale: {
+            select: {
+              saleNumber: true,
+              customer: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { paymentDate: "desc" },
+        take: 20,
+      }),
+      getDb().expense.findMany({
+        where: { status: "active" },
+        include: { category: true },
+        orderBy: { expenseDate: "desc" },
+        take: 20,
+      }),
     ]);
 
-    return { settings, salePayments, expenses, sales, databaseError: false };
+    return { settings, incomeByMethod, expenseByMethod, receivableSales, saleLedger, expenseLedger, databaseError: false };
   } catch {
-    return { settings: [], salePayments: [], expenses: [], sales: [], databaseError: true };
+    return {
+      settings: [],
+      incomeByMethod: [],
+      expenseByMethod: [],
+      receivableSales: [],
+      saleLedger: [],
+      expenseLedger: [],
+      databaseError: true,
+    };
   }
 }
 
@@ -112,39 +136,36 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
   const openingBankBalance = amountFromSetting(data.settings, "finance_opening_bank_balance");
   const openingCashInHand = amountFromSetting(data.settings, "finance_opening_cash_in_hand");
 
-  const totalSalesValue = data.salePayments.reduce((total, payment) => total + Number(payment.amount), 0);
-  const totalExpenses = data.expenses.reduce((total, expense) => total + Number(expense.amount), 0);
+  const incomeEntries = data.incomeByMethod.map((entry) => ({
+    method: entry.method,
+    amount: Number(entry._sum.amount ?? 0),
+  }));
+  const expenseEntries = data.expenseByMethod.map((entry) => ({
+    method: entry.method,
+    amount: Number(entry._sum.amount ?? 0),
+  }));
 
-  const cashIncome = data.salePayments
-    .filter((payment) => financeChannel(payment.method) === "cash")
-    .reduce((total, payment) => total + Number(payment.amount), 0);
-  const bankIncome = data.salePayments
-    .filter((payment) => financeChannel(payment.method) === "bank")
-    .reduce((total, payment) => total + Number(payment.amount), 0);
-  const otherIncome = data.salePayments
-    .filter((payment) => financeChannel(payment.method) === "other")
-    .reduce((total, payment) => total + Number(payment.amount), 0);
+  const totalSalesValue = incomeEntries.reduce((total, payment) => total + payment.amount, 0);
+  const totalExpenses = expenseEntries.reduce((total, expense) => total + expense.amount, 0);
 
-  const cashExpenses = data.expenses
-    .filter((expense) => financeChannel(expense.method) === "cash")
-    .reduce((total, expense) => total + Number(expense.amount), 0);
-  const bankExpenses = data.expenses
-    .filter((expense) => financeChannel(expense.method) === "bank")
-    .reduce((total, expense) => total + Number(expense.amount), 0);
-  const otherExpenses = data.expenses
-    .filter((expense) => financeChannel(expense.method) === "other")
-    .reduce((total, expense) => total + Number(expense.amount), 0);
+  const cashIncome = incomeEntries.filter((payment) => financeChannel(payment.method) === "cash").reduce((total, payment) => total + payment.amount, 0);
+  const bankIncome = incomeEntries.filter((payment) => financeChannel(payment.method) === "bank").reduce((total, payment) => total + payment.amount, 0);
+  const otherIncome = incomeEntries.filter((payment) => financeChannel(payment.method) === "other").reduce((total, payment) => total + payment.amount, 0);
+
+  const cashExpenses = expenseEntries.filter((expense) => financeChannel(expense.method) === "cash").reduce((total, expense) => total + expense.amount, 0);
+  const bankExpenses = expenseEntries.filter((expense) => financeChannel(expense.method) === "bank").reduce((total, expense) => total + expense.amount, 0);
+  const otherExpenses = expenseEntries.filter((expense) => financeChannel(expense.method) === "other").reduce((total, expense) => total + expense.amount, 0);
 
   const cashInHand = openingCashInHand + cashIncome - cashExpenses;
   const bankBalance = openingBankBalance + bankIncome - bankExpenses;
-  const totalReceivable = data.sales.reduce((total, sale) => {
+  const totalReceivable = data.receivableSales.reduce((total, sale) => {
     const paid = sale.payments.reduce((saleTotal, payment) => saleTotal + Number(payment.amount), 0);
     return total + Math.max(0, Number(sale.grandTotal) - paid);
   }, 0);
   const netPosition = totalSalesValue - totalExpenses;
 
   const ledger: LedgerEntry[] = [
-    ...data.salePayments.map((payment) => ({
+    ...data.saleLedger.map((payment) => ({
       id: payment.id,
       date: payment.paymentDate,
       type: "income" as const,
@@ -154,7 +175,7 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
       description: `Sale payment via ${payment.method.replaceAll("_", " ")}`,
       amount: Number(payment.amount),
     })),
-    ...data.expenses.map((expense) => ({
+    ...data.expenseLedger.map((expense) => ({
       id: expense.id,
       date: expense.expenseDate,
       type: "expense" as const,

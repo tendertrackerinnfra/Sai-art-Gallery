@@ -20,6 +20,7 @@ export function DataTable<T>({
   renderMobileCard,
   empty,
   desktopMinWidthClassName = "min-w-[760px]",
+  pageSize = 20,
 }: {
   title: string;
   description?: string;
@@ -35,7 +36,11 @@ export function DataTable<T>({
     action?: ReactNode;
   };
   desktopMinWidthClassName?: string;
+  pageSize?: number;
 }) {
+  const visibleRows = rows.slice(0, pageSize);
+  const hasMore = rows.length > pageSize;
+
   return (
     <Card>
       <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
@@ -53,7 +58,7 @@ export function DataTable<T>({
         ) : (
           <>
             <div className="space-y-3 p-4 md:hidden">
-              {rows.map((row) => (
+              {visibleRows.map((row) => (
                 <div key={getRowKey(row)}>{renderMobileCard(row)}</div>
               ))}
             </div>
@@ -69,7 +74,7 @@ export function DataTable<T>({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((row) => (
+                  {visibleRows.map((row) => (
                     <TableRow key={getRowKey(row)}>
                       {columns.map((column) => (
                         <TableCell key={column.header} className={column.className}>
@@ -81,6 +86,11 @@ export function DataTable<T>({
                 </TableBody>
               </Table>
             </div>
+            {hasMore ? (
+              <div className="border-t border-border/70 px-4 py-3 text-sm text-muted-foreground">
+                Showing first {pageSize} of {rows.length} rows in this view.
+              </div>
+            ) : null}
           </>
         )}
       </CardContent>

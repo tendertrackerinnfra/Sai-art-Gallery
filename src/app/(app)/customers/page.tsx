@@ -37,18 +37,13 @@ async function loadCustomers(query: string, filter: string) {
             }
           : {}),
       },
-      include: {
-        sales: {
-          where: { status: "active" },
-          select: {
-            grandTotal: true,
-            saleDate: true,
-            payments: {
-              where: { status: "paid" },
-              select: { amount: true },
-            },
-          },
-        },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        address: true,
+        createdAt: true,
         _count: {
           select: { sales: true, customOrders: true },
         },
@@ -56,16 +51,51 @@ async function loadCustomers(query: string, filter: string) {
       orderBy: { createdAt: "desc" },
     });
 
+    const customerIds = customers.map((customer) => customer.id);
+    const sales = customerIds.length
+      ? await getDb().sale.findMany({
+          where: {
+            status: "active",
+            customerId: { in: customerIds },
+          },
+          select: {
+            customerId: true,
+            grandTotal: true,
+            saleDate: true,
+            payments: {
+              where: { status: "paid" },
+              select: { amount: true },
+            },
+          },
+        })
+      : [];
+
+    const salesByCustomer = new Map<
+      string,
+      { salesValue: number; paidValue: number; lastSaleDate: Date | null }
+    >();
+
+    for (const sale of sales) {
+      if (!sale.customerId) continue;
+      const existing = salesByCustomer.get(sale.customerId) ?? {
+        salesValue: 0,
+        paidValue: 0,
+        lastSaleDate: null,
+      };
+      existing.salesValue += Number(sale.grandTotal);
+      existing.paidValue += sale.payments.reduce((total, payment) => total + Number(payment.amount), 0);
+      if (!existing.lastSaleDate || sale.saleDate > existing.lastSaleDate) {
+        existing.lastSaleDate = sale.saleDate;
+      }
+      salesByCustomer.set(sale.customerId, existing);
+    }
+
     const enhanced = customers.map((customer) => {
-      const salesValue = customer.sales.reduce((total, sale) => total + Number(sale.grandTotal), 0);
-      const paidValue = customer.sales.reduce(
-        (total, sale) => total + sale.payments.reduce((saleTotal, payment) => saleTotal + Number(payment.amount), 0),
-        0,
-      );
+      const salesSummary = salesByCustomer.get(customer.id);
+      const salesValue = salesSummary?.salesValue ?? 0;
+      const paidValue = salesSummary?.paidValue ?? 0;
       const outstandingBalance = Math.max(0, salesValue - paidValue);
-      const lastSaleDate = customer.sales
-        .map((sale) => sale.saleDate)
-        .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+      const lastSaleDate = salesSummary?.lastSaleDate ?? null;
 
       return {
         ...customer,
