@@ -24,6 +24,7 @@ export const config = {
     "/customers/:path*",
     "/custom-orders/:path*",
     "/expenses/:path*",
+    "/finance/:path*",
     "/payments/:path*",
     "/reports/:path*",
     "/settings/:path*",

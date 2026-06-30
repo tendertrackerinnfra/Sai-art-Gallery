@@ -179,6 +179,7 @@ export async function createExpense(formData: FormData) {
 
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  revalidatePath("/finance");
   goToExpenses("success", "Expense recorded and added to the audit trail.");
 }
 
@@ -226,5 +227,6 @@ export async function voidExpense(formData: FormData) {
 
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  revalidatePath("/finance");
   goToExpenses("success", "Expense voided. The original financial record was preserved.");
 }

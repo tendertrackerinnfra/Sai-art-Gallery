@@ -1,5 +1,6 @@
 import {
   IndianRupee,
+  Landmark,
   ShoppingBag,
   Store,
   Users,
@@ -11,6 +12,7 @@ export const navigationItems = [
   { title: "Sales", href: "/sales", icon: IndianRupee },
   { title: "Customers", href: "/customers", icon: Users },
   { title: "Expenses", href: "/expenses", icon: WalletCards },
+  { title: "Finance", href: "/finance", icon: Landmark },
 ] as const;
 
 export const appIdentity = {

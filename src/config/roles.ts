@@ -16,6 +16,7 @@ export const roleAccess: Record<Role, string[]> = {
     "customers",
     "custom-orders",
     "expenses",
+    "finance",
     "payments",
     "reports",
     "settings",
@@ -40,6 +41,7 @@ export const roleAccess: Record<Role, string[]> = {
     "vendors",
     "customers",
     "expenses",
+    "finance",
     "payments",
     "reports",
     "audit-logs",
@@ -51,4 +53,3 @@ export const protectedCapabilities = {
   backupRestore: ["Owner"],
   fullProfitReports: ["Owner", "Manager", "Accountant"],
 } satisfies Record<string, Role[]>;
-
