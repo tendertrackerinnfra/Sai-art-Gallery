@@ -1,6 +1,14 @@
 const CACHE_NAME = "sag-shell-v1";
 const OFFLINE_URL = "/offline";
-const APP_SHELL = [OFFLINE_URL, "/manifest.webmanifest", "/favicon.ico", "/branding/icon-192.png", "/branding/icon-512.png", "/branding/apple-touch-icon.png"];
+const APP_SHELL = [
+  OFFLINE_URL,
+  "/manifest.webmanifest",
+  "/favicon.ico?v=20260701",
+  "/icon.png?v=20260701",
+  "/apple-icon.png?v=20260701",
+  "/branding/icon-192.png?v=20260701",
+  "/branding/icon-512.png?v=20260701",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -39,9 +47,10 @@ self.addEventListener("fetch", (event) => {
     (
       (url.pathname.startsWith("/_next/static/") && !url.pathname.includes("/server/")) ||
       url.pathname === "/favicon.ico" ||
+      url.pathname === "/icon.png" ||
+      url.pathname === "/apple-icon.png" ||
       url.pathname === "/branding/icon-192.png" ||
       url.pathname === "/branding/icon-512.png" ||
-      url.pathname === "/branding/apple-touch-icon.png" ||
       url.pathname === "/manifest.webmanifest"
     )
   ) {
