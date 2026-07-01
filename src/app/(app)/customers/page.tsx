@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Archive, IndianRupee, Mail, MapPin, Pencil, Phone, Search, ShoppingBag, UserPlus, Users } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
@@ -20,7 +21,23 @@ import { archiveCustomer, createCustomer, updateCustomer } from "./actions";
 export const dynamic = "force-dynamic";
 
 type CustomersPageProps = {
-  searchParams: Promise<{ success?: string; error?: string; q?: string; filter?: string }>;
+  searchParams: Promise<{ success?: string; error?: string; q?: string; filter?: string; edit?: string }>;
+};
+
+type CustomerRow = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  createdAt: Date;
+  _count: {
+    sales: number;
+    customOrders: number;
+  };
+  salesValue: number;
+  outstandingBalance: number;
+  lastSaleDate: Date | null;
 };
 
 async function loadCustomers(query: string, filter: string) {
@@ -105,56 +122,107 @@ async function loadCustomers(query: string, filter: string) {
       salesByCustomer.set(sale.customerId, existing);
     }
 
-    const enhanced = customers.map((customer) => {
-      const salesSummary = salesByCustomer.get(customer.id);
-      const salesValue = salesSummary?.salesValue ?? 0;
-      const paidValue = salesSummary?.paidValue ?? 0;
-      const outstandingBalance = Math.max(0, salesValue - paidValue);
-      const lastSaleDate = salesSummary?.lastSaleDate ?? null;
+    const enhanced = customers
+      .map((customer) => {
+        const salesSummary = salesByCustomer.get(customer.id);
+        const salesValue = salesSummary?.salesValue ?? 0;
+        const paidValue = salesSummary?.paidValue ?? 0;
+        const outstandingBalance = Math.max(0, salesValue - paidValue);
+        const lastSaleDate = salesSummary?.lastSaleDate ?? null;
 
-      return {
-        ...customer,
-        salesValue,
-        outstandingBalance,
-        lastSaleDate,
-      };
-    }).filter((customer) => {
-      if (filter === "outstanding") return customer.outstandingBalance > 0;
-      if (filter === "orders") return customer._count.customOrders > 0;
-      return true;
-    });
+        return {
+          ...customer,
+          salesValue,
+          outstandingBalance,
+          lastSaleDate,
+        };
+      })
+      .filter((customer) => {
+        if (filter === "outstanding") return customer.outstandingBalance > 0;
+        if (filter === "orders") return customer._count.customOrders > 0;
+        return true;
+      });
 
     return { customers: enhanced, databaseError: false };
   } catch {
-    return { customers: [], databaseError: true };
+    return { customers: [] as CustomerRow[], databaseError: true };
   }
 }
 
-export default async function CustomersPage({ searchParams }: CustomersPageProps) {
-  await requireCapability("customers");
-  const [params, preferMobileCards] = await Promise.all([searchParams, isMobileRequest()]);
-  const query = params.q?.trim() ?? "";
-  const selectedFilter = params.filter?.trim() ?? "all";
+function CustomersContentLoading() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+            <div className="space-y-3">
+              <div className="h-4 w-24 rounded-full bg-muted" />
+              <div className="h-8 w-24 rounded-xl bg-muted" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
+        <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="h-10 rounded-xl bg-muted" />
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="h-20 rounded-2xl bg-muted" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function customersHref({
+  query,
+  filter,
+  edit,
+}: {
+  query?: string;
+  filter?: string;
+  edit?: string;
+}) {
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  if (filter && filter !== "all") params.set("filter", filter);
+  if (edit) params.set("edit", edit);
+  const value = params.toString();
+  return value ? `/customers?${value}` : "/customers";
+}
+
+async function CustomersContent({
+  query,
+  selectedFilter,
+  selectedEditId,
+  preferMobileCards,
+}: {
+  query: string;
+  selectedFilter: string;
+  selectedEditId: string;
+  preferMobileCards: boolean;
+}) {
   const { customers, databaseError } = await loadCustomers(query, selectedFilter);
   const lifetimeSales = customers.reduce((total, customer) => total + customer.salesValue, 0);
   const outstandingTotal = customers.reduce((total, customer) => total + customer.outstandingBalance, 0);
   const customersWithOrders = customers.filter((customer) => customer._count.customOrders > 0).length;
+  const selectedCustomer = customers.find((customer) => customer.id === selectedEditId) ?? null;
 
   return (
-    <section className="space-y-6">
-      <PageHeader
-        title="Customers"
-        description="Customer profiles, purchase history, contact details, and outstanding receivables with archive-safe history."
-        badge={<StatusBadge tone="archived" label="History preserved" />}
-      />
-
+    <>
       {databaseError && (
         <Alert variant="destructive">
           <strong>Database unavailable.</strong> Check PostgreSQL and the configured migration.
         </Alert>
       )}
-      {params.success && <Alert variant="success">{params.success}</Alert>}
-      {params.error && <Alert variant="destructive">{params.error}</Alert>}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Users} label="Displayed customers" value={customers.length} helper="Current filter result" />
@@ -291,44 +359,13 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
               className: "text-right",
               render: (customer) => (
                 <div className="flex justify-end gap-1">
-                  <details className="group">
-                    <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-xl hover:bg-muted">
+                  <Link
+                    href={customersHref({ query, filter: selectedFilter, edit: customer.id })}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-muted"
+                  >
                       <Pencil className="h-4 w-4" aria-hidden="true" />
                       <span className="sr-only">Edit {customer.name}</span>
-                    </summary>
-                    <div className="fixed inset-0 z-20 hidden bg-black/30 group-open:block" />
-                    <div className="fixed left-1/2 top-1/2 z-30 hidden w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-6 shadow-xl group-open:block">
-                      <div className="mb-4">
-                        <h2 className="text-base font-semibold">Edit customer</h2>
-                        <p className="mt-1 text-sm text-muted-foreground">Update contact information for {customer.name}.</p>
-                      </div>
-                      <form action={updateCustomer} className="grid gap-4 sm:grid-cols-2">
-                        <input type="hidden" name="customerId" value={customer.id} />
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label htmlFor={`name-${customer.id}`}>Customer name</Label>
-                          <Input id={`name-${customer.id}`} name="name" defaultValue={customer.name} required minLength={2} maxLength={120} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`phone-${customer.id}`}>Phone</Label>
-                          <Input id={`phone-${customer.id}`} name="phone" type="tel" defaultValue={customer.phone ?? ""} maxLength={20} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`email-${customer.id}`}>Email</Label>
-                          <Input id={`email-${customer.id}`} name="email" type="email" defaultValue={customer.email ?? ""} maxLength={180} />
-                        </div>
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label htmlFor={`address-${customer.id}`}>Address</Label>
-                          <Input id={`address-${customer.id}`} name="address" defaultValue={customer.address ?? ""} maxLength={500} />
-                        </div>
-                        <div className="flex justify-end gap-2 sm:col-span-2">
-                          <Link href="/customers" className="inline-flex h-10 items-center justify-center rounded-xl px-3 text-sm font-medium hover:bg-muted">
-                            Cancel
-                          </Link>
-                          <Button type="submit">Save changes</Button>
-                        </div>
-                      </form>
-                    </div>
-                  </details>
+                  </Link>
                   <form action={archiveCustomer}>
                     <input type="hidden" name="customerId" value={customer.id} />
                     <Button type="submit" variant="ghost" size="icon" title={`Archive ${customer.name}`}>
@@ -392,6 +429,76 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
       <Alert>
         Customer totals include active sales linked to the displayed customers. Archived profiles remain attached to historical records.
       </Alert>
+
+      {selectedCustomer ? (
+        <>
+          <div className="fixed inset-0 z-20 bg-black/30" />
+          <div className="fixed left-1/2 top-1/2 z-30 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-6 shadow-xl">
+            <div className="mb-4">
+              <h2 className="text-base font-semibold">Edit customer</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Update contact information for {selectedCustomer.name}.</p>
+            </div>
+            <form action={updateCustomer} className="grid gap-4 sm:grid-cols-2">
+              <input type="hidden" name="customerId" value={selectedCustomer.id} />
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="selected-customer-name">Customer name</Label>
+                <Input id="selected-customer-name" name="name" defaultValue={selectedCustomer.name} required minLength={2} maxLength={120} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="selected-customer-phone">Phone</Label>
+                <Input id="selected-customer-phone" name="phone" type="tel" defaultValue={selectedCustomer.phone ?? ""} maxLength={20} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="selected-customer-email">Email</Label>
+                <Input id="selected-customer-email" name="email" type="email" defaultValue={selectedCustomer.email ?? ""} maxLength={180} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="selected-customer-address">Address</Label>
+                <Input id="selected-customer-address" name="address" defaultValue={selectedCustomer.address ?? ""} maxLength={500} />
+              </div>
+              <div className="flex justify-end gap-2 sm:col-span-2">
+                <Link
+                  href={customersHref({ query, filter: selectedFilter })}
+                  className="inline-flex h-10 items-center justify-center rounded-xl px-3 text-sm font-medium hover:bg-muted"
+                >
+                  Cancel
+                </Link>
+                <Button type="submit">Save changes</Button>
+              </div>
+            </form>
+          </div>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+export default async function CustomersPage({ searchParams }: CustomersPageProps) {
+  await requireCapability("customers");
+  const [params, preferMobileCards] = await Promise.all([searchParams, isMobileRequest()]);
+  const query = params.q?.trim() ?? "";
+  const selectedFilter = params.filter?.trim() ?? "all";
+  const selectedEditId = params.edit?.trim() ?? "";
+
+  return (
+    <section className="space-y-6">
+      <PageHeader
+        title="Customers"
+        description="Customer profiles, purchase history, contact details, and outstanding receivables with archive-safe history."
+        badge={<StatusBadge tone="archived" label="History preserved" />}
+      />
+
+      {params.success && <Alert variant="success">{params.success}</Alert>}
+      {params.error && <Alert variant="destructive">{params.error}</Alert>}
+
+      <Suspense fallback={<CustomersContentLoading />}>
+        <CustomersContent
+          query={query}
+          selectedFilter={selectedFilter}
+          selectedEditId={selectedEditId}
+          preferMobileCards={preferMobileCards}
+        />
+      </Suspense>
     </section>
   );
 }

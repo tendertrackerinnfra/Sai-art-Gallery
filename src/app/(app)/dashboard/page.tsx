@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Activity, ArrowRight, Boxes, ClipboardList, IndianRupee, PackagePlus, Receipt, Sparkles, Wallet } from "lucide-react";
+import { Suspense } from "react";
+import { Activity, ArrowRight, Boxes, IndianRupee, PackagePlus, Receipt, Sparkles, Wallet } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -8,9 +9,9 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { requireCapability } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { requireCapability } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -116,7 +117,7 @@ async function getDashboardData(rangeKey: string) {
         id: movement.id,
         date: movement.createdAt,
         title: movement.product.name,
-        description: `${movement.type.replaceAll("_", " ")} · ${movement.reference ?? "No reference"}`,
+        description: `${movement.type.replaceAll("_", " ")} - ${movement.reference ?? "No reference"}`,
         amount: movement.quantity,
         kind: "stock" as const,
       })),
@@ -124,7 +125,7 @@ async function getDashboardData(rangeKey: string) {
         id: expense.id,
         date: expense.createdAt,
         title: expense.title,
-        description: `${expense.category.name} · ${expense.method?.replaceAll("_", " ") ?? "other"}`,
+        description: `${expense.category.name} - ${expense.method?.replaceAll("_", " ") ?? "other"}`,
         amount: Number(expense.amount),
         kind: "expense" as const,
       })),
@@ -168,47 +169,52 @@ const rangeOptions = [
   { key: "month", label: "This month" },
 ] as const;
 
-export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  await requireCapability("dashboard");
-  const params = await searchParams;
-  const selectedRange = rangeOptions.some((item) => item.key === params.range) ? (params.range as "today" | "week" | "month") : "today";
+function DashboardContentLoading() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={index} className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+            <div className="space-y-3">
+              <div className="h-4 w-24 rounded-full bg-muted" />
+              <div className="h-8 w-28 rounded-xl bg-muted" />
+              <div className="h-3 w-32 rounded-full bg-muted" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <div key={index} className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((__, row) => (
+                <div key={row} className="h-20 rounded-2xl bg-muted" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-28 rounded-2xl bg-muted" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function DashboardContent({ selectedRange }: { selectedRange: "today" | "week" | "month" }) {
   const data = await getDashboardData(selectedRange);
 
   return (
-    <section className="space-y-6">
-      <PageHeader
-        title="Dashboard"
-        description="Track daily business performance, stock pressure, incoming cash, and recent activity across the jewellery operation."
-        badge={<StatusBadge tone="active" label="Live business overview" />}
-        actions={
-          <>
-            <div className="inline-flex rounded-2xl border border-border bg-card p-1">
-              {rangeOptions.map((option) => (
-                <Link
-                  key={option.key}
-                  href={option.key === "today" ? "/dashboard" : `/dashboard?range=${option.key}`}
-                  className={`rounded-xl px-3 py-2 text-sm font-medium ${selectedRange === option.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-                >
-                  {option.label}
-                </Link>
-              ))}
-            </div>
-            <Link href="/sales">
-              <Button>
-                <Sparkles className="h-4 w-4" aria-hidden="true" />
-                New sale
-              </Button>
-            </Link>
-          </>
-        }
-      />
-
+    <>
       {data.databaseError && (
         <Alert variant="destructive">
           PostgreSQL is not connected. The interface is available, but live totals require the local or hosted database.
         </Alert>
       )}
-      {params.forbidden && <Alert variant="destructive">Your role does not have permission to open that module.</Alert>}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={IndianRupee} label="Sales" value={formatCurrency(data.salesTotal)} helper="Completed sale totals in the selected range" />
@@ -298,7 +304,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium">{item.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{item.sku} · {item.category.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.sku} - {item.category.name}</p>
                     </div>
                     <StatusBadge tone={item.quantityOnHand <= 0 ? "out_of_stock" : "low_stock"} />
                   </div>
@@ -316,6 +322,49 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           )}
         </CardContent>
       </Card>
+    </>
+  );
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  await requireCapability("dashboard");
+  const params = await searchParams;
+  const selectedRange = rangeOptions.some((item) => item.key === params.range) ? (params.range as "today" | "week" | "month") : "today";
+
+  return (
+    <section className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        description="Track daily business performance, stock pressure, incoming cash, and recent activity across the jewellery operation."
+        badge={<StatusBadge tone="active" label="Live business overview" />}
+        actions={
+          <>
+            <div className="inline-flex rounded-2xl border border-border bg-card p-1">
+              {rangeOptions.map((option) => (
+                <Link
+                  key={option.key}
+                  href={option.key === "today" ? "/dashboard" : `/dashboard?range=${option.key}`}
+                  className={`rounded-xl px-3 py-2 text-sm font-medium ${selectedRange === option.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                >
+                  {option.label}
+                </Link>
+              ))}
+            </div>
+            <Link href="/sales">
+              <Button>
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                New sale
+              </Button>
+            </Link>
+          </>
+        }
+      />
+
+      {params.forbidden && <Alert variant="destructive">Your role does not have permission to open that module.</Alert>}
+
+      <Suspense fallback={<DashboardContentLoading />}>
+        <DashboardContent selectedRange={selectedRange} />
+      </Suspense>
     </section>
   );
 }

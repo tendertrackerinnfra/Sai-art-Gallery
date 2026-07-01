@@ -27,6 +27,7 @@ type ExpensesPageProps = {
     error?: string;
     category?: string;
     month?: string;
+    void?: string;
   }>;
 };
 
@@ -56,6 +57,23 @@ function dateKeyInIndia(value: Date) {
   const valueFor = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((part) => part.type === type)?.value ?? "";
   return `${valueFor("year")}-${valueFor("month")}-${valueFor("day")}`;
+}
+
+function expensesHref({
+  month,
+  category,
+  voidId,
+}: {
+  month?: string;
+  category?: string;
+  voidId?: string;
+}) {
+  const params = new URLSearchParams();
+  if (month && month !== currentMonth()) params.set("month", month);
+  if (category) params.set("category", category);
+  if (voidId) params.set("void", voidId);
+  const value = params.toString();
+  return value ? `/expenses?${value}` : "/expenses";
 }
 
 async function loadExpenses(month: string, categoryId: string) {
@@ -101,6 +119,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   const [params, preferMobileCards] = await Promise.all([searchParams, isMobileRequest()]);
   const selectedMonth = monthRange(params.month ?? "") ? (params.month as string) : currentMonth();
   const selectedCategory = params.category?.trim() ?? "";
+  const selectedVoidId = params.void?.trim() ?? "";
   const { categories, expenses, databaseError } = await loadExpenses(selectedMonth, selectedCategory);
   const activeExpenses = expenses.filter((expense) => expense.status === "active");
   const voidExpenses = expenses.filter((expense) => expense.status === "void");
@@ -118,6 +137,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     }))
     .sort((a, b) => b.total - a.total)[0];
   const isHttpReceipt = (value: string | null) => Boolean(value && /^https?:\/\//i.test(value));
+  const selectedExpense = expenses.find((expense) => expense.id === selectedVoidId) ?? null;
 
   return (
     <section className="space-y-6">
@@ -319,30 +339,13 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
             className: "text-right",
             render: (expense) =>
               expense.status === "active" ? (
-                <details className="group">
-                  <summary className="ml-auto flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-xl hover:bg-muted">
+                <Link
+                  href={expensesHref({ month: selectedMonth, category: selectedCategory, voidId: expense.id })}
+                  className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl hover:bg-muted"
+                >
                     <Undo2 className="h-4 w-4" aria-hidden="true" />
                     <span className="sr-only">Void {expense.title}</span>
-                  </summary>
-                  <div className="fixed inset-0 z-20 hidden bg-black/30 group-open:block" />
-                  <div className="fixed left-1/2 top-1/2 z-30 hidden w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-6 shadow-xl group-open:block">
-                    <h2 className="text-base font-semibold">Void expense</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">This preserves the original record and excludes it from active totals.</p>
-                    <form action={voidExpense} className="mt-5 space-y-4">
-                      <input type="hidden" name="expenseId" value={expense.id} />
-                      <div className="space-y-2">
-                        <Label htmlFor={`void-reason-${expense.id}`}>Reason</Label>
-                        <Input id={`void-reason-${expense.id}`} name="reason" required minLength={5} maxLength={300} placeholder="Duplicate entry" />
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Link href="/expenses" className="inline-flex h-10 items-center justify-center rounded-xl px-3 text-sm font-medium hover:bg-muted">
-                          Cancel
-                        </Link>
-                        <Button type="submit" variant="destructive">Void expense</Button>
-                      </div>
-                    </form>
-                  </div>
-                </details>
+                </Link>
               ) : (
                 <span className="text-xs text-muted-foreground">Voided</span>
               ),
@@ -396,6 +399,32 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
       <Alert>
         Every expense creation and void action writes an audit log. Receipt paths are references; persistent online file upload will be added later without changing current financial rules.
       </Alert>
+
+      {selectedExpense && selectedExpense.status === "active" ? (
+        <>
+          <div className="fixed inset-0 z-20 bg-black/30" />
+          <div className="fixed left-1/2 top-1/2 z-30 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-6 shadow-xl">
+            <h2 className="text-base font-semibold">Void expense</h2>
+            <p className="mt-1 text-sm text-muted-foreground">This preserves the original record and excludes it from active totals.</p>
+            <form action={voidExpense} className="mt-5 space-y-4">
+              <input type="hidden" name="expenseId" value={selectedExpense.id} />
+              <div className="space-y-2">
+                <Label htmlFor="selected-expense-void-reason">Reason</Label>
+                <Input id="selected-expense-void-reason" name="reason" required minLength={5} maxLength={300} placeholder="Duplicate entry" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Link
+                  href={expensesHref({ month: selectedMonth, category: selectedCategory })}
+                  className="inline-flex h-10 items-center justify-center rounded-xl px-3 text-sm font-medium hover:bg-muted"
+                >
+                  Cancel
+                </Link>
+                <Button type="submit" variant="destructive">Void expense</Button>
+              </div>
+            </form>
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }

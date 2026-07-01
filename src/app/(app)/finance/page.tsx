@@ -1,7 +1,7 @@
+import { Suspense } from "react";
 import { Building2, CircleDollarSign, Download, Landmark, PiggyBank, ReceiptText, Wallet } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
-import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Alert } from "@/components/ui/alert";
@@ -124,10 +124,10 @@ async function loadFinanceData() {
     return { settings, incomeByMethod, expenseByMethod, activeSales, paidSaleTotals, saleLedger, expenseLedger, databaseError: false };
   } catch {
     return {
-      settings: [],
+      settings: [] as Array<{ key: string; value: string }>,
       incomeByMethod: [],
       expenseByMethod: [],
-      activeSales: [],
+      activeSales: [] as Array<{ id: string; grandTotal: unknown }>,
       paidSaleTotals: [],
       saleLedger: [],
       expenseLedger: [],
@@ -136,9 +136,48 @@ async function loadFinanceData() {
   }
 }
 
-export default async function FinancePage({ searchParams }: FinancePageProps) {
-  await requireCapability("finance");
-  const [{ success, error }, data, preferMobileCards] = await Promise.all([searchParams, loadFinanceData(), isMobileRequest()]);
+function FinanceContentLoading() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={index} className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+            <div className="space-y-3">
+              <div className="h-4 w-24 rounded-full bg-muted" />
+              <div className="h-8 w-28 rounded-xl bg-muted" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+        <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-10 rounded-xl bg-muted" />
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="h-20 rounded-2xl bg-muted" />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-20 rounded-2xl bg-muted" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function FinanceContent({ preferMobileCards }: { preferMobileCards: boolean }) {
+  const data = await loadFinanceData();
 
   const openingBankBalance = amountFromSetting(data.settings, "finance_opening_bank_balance");
   const openingCashInHand = amountFromSetting(data.settings, "finance_opening_cash_in_hand");
@@ -198,32 +237,12 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 20);
 
   return (
-    <section className="space-y-6">
-      <PageHeader
-        title="Finance"
-        description="Live cash, bank, receivables, and expense intelligence derived automatically from saved business transactions."
-        badge={<StatusBadge tone="active" label="Auto-calculated from sales and expenses" />}
-        actions={
-          <>
-            <Button variant="outline" disabled aria-disabled="true">
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Export P&L
-            </Button>
-            <Button variant="outline" disabled aria-disabled="true">
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Export ledger
-            </Button>
-          </>
-        }
-      />
-
+    <>
       {data.databaseError && (
         <Alert variant="destructive">
           <strong>Database unavailable.</strong> Finance totals depend on sales payments, expenses, and saved settings.
         </Alert>
       )}
-      {success && <Alert variant="success">{success}</Alert>}
-      {error && <Alert variant="destructive">{error}</Alert>}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={CircleDollarSign} label="Total income" value={formatCurrency(totalSalesValue)} helper="Recorded sale payments" />
@@ -298,7 +317,7 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>P&L summary</CardTitle>
+            <CardTitle>P&amp;L summary</CardTitle>
             <CardDescription>Automatic channel split and current net position.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -374,7 +393,7 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium">{entry.counterparty}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{entry.reference} · {formatDate(entry.date)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{entry.reference} - {formatDate(entry.date)}</p>
               </div>
               <StatusBadge tone={entry.type === "income" ? "paid" : "voided"} label={entry.type} />
             </div>
@@ -397,6 +416,40 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
       <Alert>
         `Cash` changes cash in hand. `UPI`, `bank transfer`, and `card` change bank balance. `Other` stays visible in totals but is not automatically assigned to cash or bank.
       </Alert>
+    </>
+  );
+}
+
+export default async function FinancePage({ searchParams }: FinancePageProps) {
+  await requireCapability("finance");
+  const [{ success, error }, preferMobileCards] = await Promise.all([searchParams, isMobileRequest()]);
+
+  return (
+    <section className="space-y-6">
+      <PageHeader
+        title="Finance"
+        description="Live cash, bank, receivables, and expense intelligence derived automatically from saved business transactions."
+        badge={<StatusBadge tone="active" label="Auto-calculated from sales and expenses" />}
+        actions={
+          <>
+            <Button variant="outline" disabled aria-disabled="true">
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Export P&amp;L
+            </Button>
+            <Button variant="outline" disabled aria-disabled="true">
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Export ledger
+            </Button>
+          </>
+        }
+      />
+
+      {success && <Alert variant="success">{success}</Alert>}
+      {error && <Alert variant="destructive">{error}</Alert>}
+
+      <Suspense fallback={<FinanceContentLoading />}>
+        <FinanceContent preferMobileCards={preferMobileCards} />
+      </Suspense>
     </section>
   );
 }
