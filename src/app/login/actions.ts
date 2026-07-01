@@ -6,6 +6,14 @@ import { clearSession, setSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 
+function databaseUnavailableLoginMessage() {
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") {
+    return "Database unavailable. Check Vercel DATABASE_URL and DIRECT_URL, verify the Supabase password, then redeploy.";
+  }
+
+  return "Database unavailable. Start PostgreSQL and complete the initial migration.";
+}
+
 function loginError(message: string): never {
   redirect(`/login?error=${encodeURIComponent(message)}`);
 }
@@ -27,7 +35,7 @@ export async function login(formData: FormData) {
       include: { role: true },
     });
   } catch {
-    loginError("Database unavailable. Start PostgreSQL and complete the initial migration.");
+    loginError(databaseUnavailableLoginMessage());
   }
 
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
@@ -58,4 +66,3 @@ export async function logout() {
   await clearSession();
   redirect("/login");
 }
-

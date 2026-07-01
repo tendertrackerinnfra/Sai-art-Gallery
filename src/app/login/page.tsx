@@ -21,6 +21,7 @@ type LoginPageProps = {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const [user, { error }] = await Promise.all([getCurrentUser(), searchParams]);
   if (user) redirect("/dashboard");
+  const isHostedRuntime = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
 
   return (
     <main className="grid min-h-screen bg-background lg:grid-cols-[minmax(320px,0.8fr)_minmax(480px,1.2fr)]">
@@ -38,10 +39,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <AppLogo variant="wide" className="mb-8 max-w-[320px]" priority />
           <p className="text-3xl font-semibold leading-tight">Your local business workspace.</p>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            Inventory, sales, invoices, production, payments, reports, and backups remain on your local system.
+            {isHostedRuntime
+              ? "Use the hosted business workspace connected to your production database."
+              : "Inventory, sales, invoices, production, payments, reports, and backups remain on your local system."}
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">Development database: sai_art_gallery_dev</p>
+        <p className="text-xs text-muted-foreground">
+          {isHostedRuntime ? "Production environment" : "Development database: sai_art_gallery_dev"}
+        </p>
       </section>
 
       <section className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-8">
@@ -62,7 +67,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 <LockKeyhole className="h-5 w-5" aria-hidden="true" />
                 Sign in
               </CardTitle>
-              <CardDescription>Use the local account created during database setup.</CardDescription>
+              <CardDescription>
+                {isHostedRuntime
+                  ? "Use the account stored in the hosted production database."
+                  : "Use the local account created during database setup."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {error && <Alert variant="destructive" className="mb-4">{error}</Alert>}
@@ -94,7 +103,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </CardContent>
           </Card>
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            Accounts are stored only in the configured local PostgreSQL database.
+            {isHostedRuntime
+              ? "Accounts are stored in the configured hosted PostgreSQL database."
+              : "Accounts are stored only in the configured local PostgreSQL database."}
           </p>
         </div>
       </section>
