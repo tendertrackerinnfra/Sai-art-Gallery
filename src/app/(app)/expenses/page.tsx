@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { Archive, CalendarDays, ExternalLink, IndianRupee, Plus, ReceiptText, Tags, Undo2, Wallet } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
@@ -13,13 +14,12 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { isMobileRequest } from "@/lib/request-device";
 
 import { archiveExpenseCategory, createExpense, createExpenseCategory, voidExpense } from "./actions";
-
-export const dynamic = "force-dynamic";
 
 type ExpensesPageProps = {
   searchParams: Promise<{
@@ -114,13 +114,29 @@ async function loadExpenses(month: string, categoryId: string) {
   }
 }
 
+const loadExpensesCached = unstable_cache(
+  async (month: string, categoryId: string) => loadExpenses(month, categoryId),
+  ["expenses-data"],
+  {
+    revalidate: 30,
+    tags: [dataCacheTags.expenses, dataCacheTags.dashboard, dataCacheTags.finance],
+  },
+);
+
 export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
   await requireCapability("expenses");
   const [params, preferMobileCards] = await Promise.all([searchParams, isMobileRequest()]);
   const selectedMonth = monthRange(params.month ?? "") ? (params.month as string) : currentMonth();
   const selectedCategory = params.category?.trim() ?? "";
   const selectedVoidId = params.void?.trim() ?? "";
-  const { categories, expenses, databaseError } = await loadExpenses(selectedMonth, selectedCategory);
+  const cachedData = await loadExpensesCached(selectedMonth, selectedCategory);
+  const categories = cachedData.categories;
+  const expenses = cachedData.expenses.map((expense) => ({
+    ...expense,
+    expenseDate: new Date(expense.expenseDate),
+    createdAt: new Date(expense.createdAt),
+  }));
+  const { databaseError } = cachedData;
   const activeExpenses = expenses.filter((expense) => expense.status === "active");
   const voidExpenses = expenses.filter((expense) => expense.status === "void");
   const totalExpenses = activeExpenses.reduce((total, expense) => total + Number(expense.amount), 0);

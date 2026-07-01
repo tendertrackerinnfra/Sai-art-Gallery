@@ -18,8 +18,9 @@ export function formatCurrency(value: number | string) {
   return currencyFormatter.format(Number(value));
 }
 
-export function formatDate(value: Date) {
-  return dateFormatter.format(value);
+export function formatDate(value: Date | string) {
+  const dateValue = value instanceof Date ? value : new Date(value);
+  return dateFormatter.format(dateValue);
 }
 
 export function formatQuantity(value: number | string) {

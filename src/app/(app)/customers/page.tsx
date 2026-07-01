@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { Suspense } from "react";
 import { Archive, IndianRupee, Mail, MapPin, Pencil, Phone, Search, ShoppingBag, UserPlus, Users } from "lucide-react";
 
@@ -12,13 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { isMobileRequest } from "@/lib/request-device";
 
 import { archiveCustomer, createCustomer, updateCustomer } from "./actions";
-
-export const dynamic = "force-dynamic";
 
 type CustomersPageProps = {
   searchParams: Promise<{ success?: string; error?: string; q?: string; filter?: string; edit?: string }>;
@@ -149,6 +149,15 @@ async function loadCustomers(query: string, filter: string) {
   }
 }
 
+const loadCustomersCached = unstable_cache(
+  async (query: string, filter: string) => loadCustomers(query, filter),
+  ["customers-data"],
+  {
+    revalidate: 30,
+    tags: [dataCacheTags.customers, dataCacheTags.sales],
+  },
+);
+
 function CustomersContentLoading() {
   return (
     <div className="space-y-6 animate-pulse">
@@ -210,7 +219,13 @@ async function CustomersContent({
   selectedEditId: string;
   preferMobileCards: boolean;
 }) {
-  const { customers, databaseError } = await loadCustomers(query, selectedFilter);
+  const cachedData = await loadCustomersCached(query, selectedFilter);
+  const customers = cachedData.customers.map((customer) => ({
+    ...customer,
+    createdAt: new Date(customer.createdAt),
+    lastSaleDate: customer.lastSaleDate ? new Date(customer.lastSaleDate) : null,
+  }));
+  const { databaseError } = cachedData;
   const lifetimeSales = customers.reduce((total, customer) => total + customer.salesValue, 0);
   const outstandingTotal = customers.reduce((total, customer) => total + customer.outstandingBalance, 0);
   const customersWithOrders = customers.filter((customer) => customer._count.customOrders > 0).length;

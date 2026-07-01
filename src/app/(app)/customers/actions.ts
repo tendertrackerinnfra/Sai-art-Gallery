@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags, revalidateAppData } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 
 function requiredText(formData: FormData, key: string) {
@@ -76,6 +77,7 @@ export async function createCustomer(formData: FormData) {
   }
 
   revalidatePath("/customers");
+  revalidateAppData(dataCacheTags.customers);
   goToCustomers("success", "Customer profile created.");
 }
 
@@ -127,6 +129,7 @@ export async function updateCustomer(formData: FormData) {
   }
 
   revalidatePath("/customers");
+  revalidateAppData(dataCacheTags.customers);
   goToCustomers("success", "Customer profile updated.");
 }
 
@@ -166,5 +169,6 @@ export async function archiveCustomer(formData: FormData) {
   }
 
   revalidatePath("/customers");
+  revalidateAppData(dataCacheTags.customers);
   goToCustomers("success", "Customer archived. Sales and order history were preserved.");
 }

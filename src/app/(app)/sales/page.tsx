@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { AlertCircle, Ban, CircleDollarSign, Download, PackageCheck, Receipt, Wallet } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -12,12 +13,11 @@ import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 import { cancelSale, createSale, recordSalePayment } from "./actions";
-
-export const dynamic = "force-dynamic";
 
 type SalesPageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -80,9 +80,35 @@ async function loadSalesData() {
   }
 }
 
+const loadSalesDataCached = unstable_cache(
+  async () => loadSalesData(),
+  ["sales-data"],
+  {
+    revalidate: 30,
+    tags: [
+      dataCacheTags.sales,
+      dataCacheTags.customers,
+      dataCacheTags.products,
+      dataCacheTags.dashboard,
+      dataCacheTags.finance,
+    ],
+  },
+);
+
 export default async function SalesPage({ searchParams }: SalesPageProps) {
   await requireCapability("sales");
-  const [{ success, error }, data] = await Promise.all([searchParams, loadSalesData()]);
+  const [{ success, error }, cachedData] = await Promise.all([searchParams, loadSalesDataCached()]);
+  const data = {
+    ...cachedData,
+    sales: cachedData.sales.map((sale) => ({
+      ...sale,
+      saleDate: new Date(sale.saleDate),
+      payments: sale.payments.map((payment) => ({
+        ...payment,
+        paymentDate: new Date(payment.paymentDate),
+      })),
+    })),
+  };
 
   const activeSales = data.sales.filter((sale) => sale.status === "active");
   const grossSalesValue = activeSales.reduce((total, sale) => total + Number(sale.grandTotal), 0);

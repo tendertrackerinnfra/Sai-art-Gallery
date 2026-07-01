@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { AlertTriangle, Archive, Boxes, ImagePlus, PackagePlus, Search, SlidersHorizontal, Tags } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
@@ -12,14 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { dataCacheTags } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { requireCapability } from "@/lib/auth";
 import { isMobileRequest } from "@/lib/request-device";
 
 import { adjustStock, archiveProduct, createCategory, createProduct } from "./actions";
-
-export const dynamic = "force-dynamic";
 
 type ProductsPageProps = {
   searchParams: Promise<{ success?: string; error?: string; q?: string; category?: string; archived?: string }>;
@@ -60,13 +60,30 @@ async function loadInventory(query: string, categoryId: string, includeArchived:
   }
 }
 
+const loadInventoryCached = unstable_cache(
+  async (query: string, categoryId: string, includeArchived: boolean) =>
+    loadInventory(query, categoryId, includeArchived),
+  ["products-data"],
+  {
+    revalidate: 30,
+    tags: [dataCacheTags.products, dataCacheTags.sales, dataCacheTags.dashboard],
+  },
+);
+
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   await requireCapability("products");
   const [params, preferMobileCards] = await Promise.all([searchParams, isMobileRequest()]);
   const query = params.q?.trim() ?? "";
   const selectedCategory = params.category?.trim() ?? "";
   const includeArchived = params.archived === "1";
-  const inventory = await loadInventory(query, selectedCategory, includeArchived);
+  const cachedInventory = await loadInventoryCached(query, selectedCategory, includeArchived);
+  const inventory = {
+    ...cachedInventory,
+    movements: cachedInventory.movements.map((movement) => ({
+      ...movement,
+      createdAt: new Date(movement.createdAt),
+    })),
+  };
 
   const lowStockCount = inventory.products.filter(
     (product) => product.status === "active" && product.quantityOnHand > 0 && product.quantityOnHand <= product.reorderLevel,

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags, revalidateAppData } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 
 const paymentMethods = new Set(["cash", "upi", "bank_transfer", "card", "other"]);
@@ -57,6 +58,7 @@ export async function createExpenseCategory(formData: FormData) {
   }
 
   revalidatePath("/expenses");
+  revalidateAppData(dataCacheTags.expenses);
   goToExpenses("success", "Expense category created.");
 }
 
@@ -106,6 +108,7 @@ export async function archiveExpenseCategory(formData: FormData) {
   }
 
   revalidatePath("/expenses");
+  revalidateAppData(dataCacheTags.expenses);
   goToExpenses("success", "Expense category archived.");
 }
 
@@ -180,6 +183,7 @@ export async function createExpense(formData: FormData) {
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
   revalidatePath("/finance");
+  revalidateAppData(dataCacheTags.expenses, dataCacheTags.dashboard, dataCacheTags.finance);
   goToExpenses("success", "Expense recorded and added to the audit trail.");
 }
 
@@ -228,5 +232,6 @@ export async function voidExpense(formData: FormData) {
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
   revalidatePath("/finance");
+  revalidateAppData(dataCacheTags.expenses, dataCacheTags.dashboard, dataCacheTags.finance);
   goToExpenses("success", "Expense voided. The original financial record was preserved.");
 }

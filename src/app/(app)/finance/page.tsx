@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { Suspense } from "react";
 import { Building2, CircleDollarSign, Download, Landmark, PiggyBank, ReceiptText, Wallet } from "lucide-react";
 
@@ -11,13 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { isMobileRequest } from "@/lib/request-device";
 
 import { updateFinanceSettings } from "./actions";
-
-export const dynamic = "force-dynamic";
 
 type FinancePageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -136,6 +136,15 @@ async function loadFinanceData() {
   }
 }
 
+const loadFinanceDataCached = unstable_cache(
+  async () => loadFinanceData(),
+  ["finance-data"],
+  {
+    revalidate: 30,
+    tags: [dataCacheTags.finance, dataCacheTags.sales, dataCacheTags.expenses],
+  },
+);
+
 function FinanceContentLoading() {
   return (
     <div className="space-y-6 animate-pulse">
@@ -177,7 +186,18 @@ function FinanceContentLoading() {
 }
 
 async function FinanceContent({ preferMobileCards }: { preferMobileCards: boolean }) {
-  const data = await loadFinanceData();
+  const cachedData = await loadFinanceDataCached();
+  const data = {
+    ...cachedData,
+    saleLedger: cachedData.saleLedger.map((payment) => ({
+      ...payment,
+      paymentDate: new Date(payment.paymentDate),
+    })),
+    expenseLedger: cachedData.expenseLedger.map((expense) => ({
+      ...expense,
+      expenseDate: new Date(expense.expenseDate),
+    })),
+  };
 
   const openingBankBalance = amountFromSetting(data.settings, "finance_opening_bank_balance");
   const openingCashInHand = amountFromSetting(data.settings, "finance_opening_cash_in_hand");

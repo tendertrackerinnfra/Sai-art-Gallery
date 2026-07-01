@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags, revalidateAppData } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 
 const financeSettingKeys = [
@@ -92,5 +93,6 @@ export async function updateFinanceSettings(formData: FormData) {
   }
 
   revalidatePath("/finance");
+  revalidateAppData(dataCacheTags.finance);
   goToFinance("success", "Finance settings updated.");
 }

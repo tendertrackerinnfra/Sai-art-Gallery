@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags, revalidateAppData } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 
 const paymentMethods = new Set(["cash", "upi", "bank_transfer", "card", "other"]);
@@ -329,6 +330,13 @@ export async function createSale(formData: FormData) {
   revalidatePath("/customers");
   revalidatePath("/dashboard");
   revalidatePath("/finance");
+  revalidateAppData(
+    dataCacheTags.sales,
+    dataCacheTags.products,
+    dataCacheTags.customers,
+    dataCacheTags.dashboard,
+    dataCacheTags.finance,
+  );
   goToSales("success", "Sale recorded, stock deducted, and audit log written.");
 }
 
@@ -422,6 +430,12 @@ export async function recordSalePayment(formData: FormData) {
   revalidatePath("/sales");
   revalidatePath("/dashboard");
   revalidatePath("/finance");
+  revalidateAppData(
+    dataCacheTags.sales,
+    dataCacheTags.customers,
+    dataCacheTags.dashboard,
+    dataCacheTags.finance,
+  );
   goToSales("success", "Sale payment recorded.");
 }
 
@@ -519,5 +533,11 @@ export async function cancelSale(formData: FormData) {
   revalidatePath("/products");
   revalidatePath("/dashboard");
   revalidatePath("/finance");
+  revalidateAppData(
+    dataCacheTags.sales,
+    dataCacheTags.products,
+    dataCacheTags.dashboard,
+    dataCacheTags.finance,
+  );
   goToSales("success", "Sale cancelled and stock restored.");
 }

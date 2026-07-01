@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { getDb } from "@/lib/db";
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags, revalidateAppData } from "@/lib/data-cache";
 
 function requiredText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -48,6 +49,7 @@ export async function createCategory(formData: FormData) {
   }
 
   revalidatePath("/products");
+  revalidateAppData(dataCacheTags.products);
   goToProducts("success", "Category created.");
 }
 
@@ -136,6 +138,7 @@ export async function createProduct(formData: FormData) {
 
   revalidatePath("/products");
   revalidatePath("/dashboard");
+  revalidateAppData(dataCacheTags.products, dataCacheTags.dashboard, dataCacheTags.sales);
   goToProducts("success", "Product created with an automatic SKU.");
 }
 
@@ -194,6 +197,7 @@ export async function adjustStock(formData: FormData) {
 
   revalidatePath("/products");
   revalidatePath("/dashboard");
+  revalidateAppData(dataCacheTags.products, dataCacheTags.dashboard, dataCacheTags.sales);
   goToProducts("success", "Stock adjusted and movement recorded.");
 }
 
@@ -227,5 +231,6 @@ export async function archiveProduct(formData: FormData) {
 
   revalidatePath("/products");
   revalidatePath("/dashboard");
+  revalidateAppData(dataCacheTags.products, dataCacheTags.dashboard, dataCacheTags.sales);
   goToProducts("success", "Product archived. Historical records were preserved.");
 }

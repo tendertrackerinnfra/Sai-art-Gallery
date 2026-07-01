@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { Suspense } from "react";
 import { Activity, ArrowRight, Boxes, IndianRupee, PackagePlus, Receipt, Sparkles, Wallet } from "lucide-react";
 
@@ -10,10 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireCapability } from "@/lib/auth";
+import { dataCacheTags } from "@/lib/data-cache";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
-
-export const dynamic = "force-dynamic";
 
 function getRange(range: string) {
   const now = new Date();
@@ -159,6 +159,21 @@ async function getDashboardData(rangeKey: string) {
   }
 }
 
+const getDashboardDataCached = unstable_cache(
+  async (rangeKey: string) => getDashboardData(rangeKey),
+  ["dashboard-data"],
+  {
+    revalidate: 30,
+    tags: [
+      dataCacheTags.dashboard,
+      dataCacheTags.products,
+      dataCacheTags.sales,
+      dataCacheTags.expenses,
+      dataCacheTags.finance,
+    ],
+  },
+);
+
 type DashboardPageProps = {
   searchParams: Promise<{ forbidden?: string; range?: string }>;
 };
@@ -206,7 +221,14 @@ function DashboardContentLoading() {
 }
 
 async function DashboardContent({ selectedRange }: { selectedRange: "today" | "week" | "month" }) {
-  const data = await getDashboardData(selectedRange);
+  const cachedData = await getDashboardDataCached(selectedRange);
+  const data = {
+    ...cachedData,
+    recentActivity: cachedData.recentActivity.map((item) => ({
+      ...item,
+      date: new Date(item.date),
+    })),
+  };
 
   return (
     <>
