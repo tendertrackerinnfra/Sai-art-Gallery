@@ -3,7 +3,6 @@ import {
   IndianRupee,
   Landmark,
   ShoppingBag,
-  Store,
   Users,
   WalletCards,
 } from "lucide-react";
@@ -19,6 +18,6 @@ export const navigationItems = [
 
 export const appIdentity = {
   name: "Sai Art Gallery",
+  shortName: "SAG",
   businessType: "Handmade jewellery business",
-  icon: Store,
 };

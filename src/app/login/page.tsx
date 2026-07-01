@@ -1,11 +1,13 @@
-import { LockKeyhole, Store } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import { redirect } from "next/navigation";
 
+import { AppLogo } from "@/components/branding/app-logo";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { appIdentity } from "@/config/navigation";
 import { getCurrentUser } from "@/lib/auth";
 
 import { login } from "./actions";
@@ -24,15 +26,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <main className="grid min-h-screen bg-background lg:grid-cols-[minmax(320px,0.8fr)_minmax(480px,1.2fr)]">
       <section className="hidden border-r border-border bg-card p-10 lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Store className="h-5 w-5" aria-hidden="true" />
+          <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm">
+            <AppLogo variant="square" className="h-12 w-12 object-contain" priority />
           </span>
           <div>
-            <p className="font-semibold">Sai Art Gallery</p>
-            <p className="text-sm text-muted-foreground">Handmade jewellery business</p>
+            <p className="font-semibold">{appIdentity.name}</p>
+            <p className="text-sm text-muted-foreground">{appIdentity.businessType}</p>
           </div>
         </div>
         <div className="max-w-sm">
+          <AppLogo variant="wide" className="mb-8 max-w-[320px]" priority />
           <p className="text-3xl font-semibold leading-tight">Your local business workspace.</p>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
             Inventory, sales, invoices, production, payments, reports, and backups remain on your local system.
@@ -44,11 +47,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <section className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-8">
         <div className="w-full max-w-md">
           <div className="mb-6 flex items-center gap-3 lg:hidden">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Store className="h-5 w-5" aria-hidden="true" />
+            <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm">
+              <AppLogo variant="square" className="h-10 w-10 object-contain" priority />
             </span>
             <div>
-              <p className="font-semibold">Sai Art Gallery</p>
+              <p className="font-semibold">{appIdentity.name}</p>
               <p className="text-xs text-muted-foreground">Local business management</p>
             </div>
           </div>
@@ -98,4 +101,3 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     </main>
   );
 }
-

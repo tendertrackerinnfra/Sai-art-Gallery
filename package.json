@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "next typegen && tsc -p tsconfig.typecheck.json --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate dev",

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { AppLogo } from "@/components/branding/app-logo";
 import { appIdentity, navigationItems } from "@/config/navigation";
 import { roleAccess, type Role } from "@/config/roles";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +35,6 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const BrandIcon = appIdentity.icon;
 
   const visibleNavigation = useMemo(
     () =>
@@ -83,8 +83,8 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
       >
         <div className="flex items-center justify-between gap-2">
           <Link href="/dashboard" className="flex min-w-0 items-center gap-3 px-2">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
-              <BrandIcon className="h-5 w-5" aria-hidden="true" />
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm">
+              <AppLogo variant="square" className="h-10 w-10 object-contain" priority />
             </span>
             {sidebarCollapsed ? null : (
               <span className="min-w-0">
@@ -168,6 +168,9 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
               <Button type="button" variant="outline" size="icon" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
                 <Menu className="h-4 w-4" aria-hidden="true" />
               </Button>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-white shadow-sm">
+                <AppLogo variant="square" className="h-8 w-8 object-contain" />
+              </span>
               <span className="text-sm font-semibold">{appIdentity.name}</span>
             </div>
 
@@ -213,8 +216,8 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
           <div className="fixed inset-y-0 left-0 z-50 w-[88vw] max-w-sm border-r border-border/70 bg-card p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <Link href="/dashboard" className="flex min-w-0 items-center gap-3" onClick={() => setMobileOpen(false)}>
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-                  <BrandIcon className="h-5 w-5" aria-hidden="true" />
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm">
+                  <AppLogo variant="square" className="h-10 w-10 object-contain" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold">{appIdentity.name}</span>

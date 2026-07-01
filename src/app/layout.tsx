@@ -14,8 +14,12 @@ export const metadata: Metadata = {
     title: "Sai Art Gallery",
   },
   icons: {
-    icon: [{ url: "/icon" }],
-    apple: [{ url: "/apple-icon" }],
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/branding/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/branding/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/branding/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   formatDetection: {
     telephone: false,
