@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { Archive, CalendarDays, ExternalLink, IndianRupee, Plus, ReceiptText, Tags, Undo2, Wallet } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
+import { DatabaseUnavailableAlert } from "@/components/shared/database-unavailable-alert";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -163,11 +164,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         badge={<StatusBadge tone="voided" label="Void-only corrections" />}
       />
 
-      {databaseError && (
-        <Alert variant="destructive">
-          <strong>Database unavailable.</strong> Check PostgreSQL and the configured migration.
-        </Alert>
-      )}
+      {databaseError && <DatabaseUnavailableAlert scope="Expenses" />}
       {params.success && <Alert variant="success">{params.success}</Alert>}
       {params.error && <Alert variant="destructive">{params.error}</Alert>}
 

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Building2, CircleDollarSign, Download, Landmark, PiggyBank, ReceiptText, Wallet } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
+import { DatabaseUnavailableAlert } from "@/components/shared/database-unavailable-alert";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Alert } from "@/components/ui/alert";
@@ -258,11 +259,7 @@ async function FinanceContent({ preferMobileCards }: { preferMobileCards: boolea
 
   return (
     <>
-      {data.databaseError && (
-        <Alert variant="destructive">
-          <strong>Database unavailable.</strong> Finance totals depend on sales payments, expenses, and saved settings.
-        </Alert>
-      )}
+      {data.databaseError && <DatabaseUnavailableAlert scope="Finance" />}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={CircleDollarSign} label="Total income" value={formatCurrency(totalSalesValue)} helper="Recorded sale payments" />

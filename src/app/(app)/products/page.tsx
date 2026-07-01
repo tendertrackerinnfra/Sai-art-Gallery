@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { AlertTriangle, Archive, Boxes, ImagePlus, PackagePlus, Search, SlidersHorizontal, Tags } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
+import { DatabaseUnavailableAlert } from "@/components/shared/database-unavailable-alert";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -103,12 +104,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         badge={<StatusBadge tone="archived" label="Archive-only records" />}
       />
 
-      {inventory.databaseError && (
-        <Alert variant="destructive">
-          <strong>Database unavailable.</strong> Start PostgreSQL, create <code>sai_art_gallery_dev</code>,
-          then run the migration and seed commands from the README.
-        </Alert>
-      )}
+      {inventory.databaseError && <DatabaseUnavailableAlert scope="Inventory" />}
       {params.success && <Alert variant="success">{params.success}</Alert>}
       {params.error && <Alert variant="destructive">{params.error}</Alert>}
 

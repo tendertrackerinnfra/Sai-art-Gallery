@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { Suspense } from "react";
 import { Activity, ArrowRight, Boxes, IndianRupee, PackagePlus, Receipt, Sparkles, Wallet } from "lucide-react";
 
+import { DatabaseUnavailableAlert } from "@/components/shared/database-unavailable-alert";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -232,11 +233,7 @@ async function DashboardContent({ selectedRange }: { selectedRange: "today" | "w
 
   return (
     <>
-      {data.databaseError && (
-        <Alert variant="destructive">
-          PostgreSQL is not connected. The interface is available, but live totals require the local or hosted database.
-        </Alert>
-      )}
+      {data.databaseError && <DatabaseUnavailableAlert scope="Dashboard" />}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={IndianRupee} label="Sales" value={formatCurrency(data.salesTotal)} helper="Completed sale totals in the selected range" />

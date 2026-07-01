@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Archive, IndianRupee, Mail, MapPin, Pencil, Phone, Search, ShoppingBag, UserPlus, Users } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
+import { DatabaseUnavailableAlert } from "@/components/shared/database-unavailable-alert";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Alert } from "@/components/ui/alert";
@@ -233,11 +234,7 @@ async function CustomersContent({
 
   return (
     <>
-      {databaseError && (
-        <Alert variant="destructive">
-          <strong>Database unavailable.</strong> Check PostgreSQL and the configured migration.
-        </Alert>
-      )}
+      {databaseError && <DatabaseUnavailableAlert scope="Customers" />}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Users} label="Displayed customers" value={customers.length} helper="Current filter result" />

@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { AlertCircle, Ban, CircleDollarSign, Download, PackageCheck, Receipt, Wallet } from "lucide-react";
 
+import { DatabaseUnavailableAlert } from "@/components/shared/database-unavailable-alert";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -134,12 +135,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
         badge={<StatusBadge tone="active" label="Transactional stock control" />}
       />
 
-      {data.databaseError && (
-        <Alert variant="destructive">
-          <strong>Database unavailable.</strong> Start PostgreSQL, connect Supabase, or restore the local database
-          before using the sales workflow.
-        </Alert>
-      )}
+      {data.databaseError && <DatabaseUnavailableAlert scope="Sales" />}
       {success && <Alert variant="success">{success}</Alert>}
       {error && <Alert variant="destructive">{error}</Alert>}
       <Alert>

@@ -6,6 +6,7 @@ import {
   Scale,
 } from "lucide-react";
 
+import { DatabaseUnavailableAlert } from "@/components/shared/database-unavailable-alert";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -96,12 +97,7 @@ export default async function RawMaterialsPage({
         <Badge className="bg-emerald-50 text-emerald-700">Archive-only records</Badge>
       </div>
 
-      {inventory.databaseError && (
-        <Alert variant="destructive">
-          <strong>Database unavailable.</strong> Check the configured PostgreSQL connection and
-          migration status.
-        </Alert>
-      )}
+      {inventory.databaseError && <DatabaseUnavailableAlert scope="Raw materials" />}
       {success && <Alert variant="success">{success}</Alert>}
       {error && <Alert variant="destructive">{error}</Alert>}
 
